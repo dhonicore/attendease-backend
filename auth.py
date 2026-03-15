@@ -55,6 +55,13 @@ async def google_callback(code: str):
         user = existing.data[0]
 
     name = user.get('name', '').replace(' ', '%20')
-    return RedirectResponse(
-    f"https://nobunk.vercel.app/index.html?user_id={user['id']}&name={name}&email={user['email']}"
-    )
+    is_onboarded = user.get('onboarded', False)
+
+    if is_onboarded:
+        return RedirectResponse(
+            f"https://nobunk.vercel.app/index.html?user_id={user['id']}&name={name}&email={user['email']}"
+        )
+    else:
+        return RedirectResponse(
+            f"https://nobunk.vercel.app/onboarding.html?user_id={user['id']}&name={name}&email={user['email']}"
+        )
