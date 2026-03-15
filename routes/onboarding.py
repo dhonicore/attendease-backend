@@ -35,22 +35,18 @@ def update_profile(data: ProfileUpdate):
 async def parse_timetable(user_id: str, file: UploadFile = File(...)):
     contents = await file.read()
     b64 = base64.b64encode(contents).decode()
+    mime = file.content_type or "application/pdf"
 
-    prompt = """This is a college timetable PDF. Extract all information and return ONLY valid JSON:
+    prompt = """Extract timetable data from this document. Find all sections and their subjects.
+Return ONLY this JSON, no markdown:
 {
-  "sections": ["A", "B", "C"],
+  "sections": ["A", "B"],
   "subjects_by_section": {
-    "A": ["Subject1", "Subject2"],
-    "B": ["Subject1", "Subject2"]
-  },
-  "schedule_by_section": {
-    "A": {
-      "Monday": ["Subject1", "Subject2", "Subject3", "Subject4", "Subject5"],
-      "Tuesday": ["Subject1", "Subject2", "Subject3", "Subject4", "Subject5"]
-    }
+    "A": ["Maths", "Physics", "Chemistry"],
+    "B": ["Maths", "Physics", "Chemistry"]
   }
 }
-If only one section exists, use "DEFAULT" as the section name."""
+If you cannot find sections, use "DEFAULT" as section name and list all subjects you find."""
 
     async with httpx.AsyncClient() as client:
         res = await client.post(
@@ -59,7 +55,7 @@ If only one section exists, use "DEFAULT" as the section name."""
                 "contents": [{
                     "parts": [
                         {"text": prompt},
-                        {"inline_data": {"mime_type": file.content_type or "application/pdf", "data": b64}}
+                        {"inline_data": {"mime_type": mime, "data": b64}}
                     ]
                 }],
                 "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2048}
@@ -73,16 +69,14 @@ If only one section exists, use "DEFAULT" as the section name."""
         text = text.replace("```json", "").replace("```", "").strip()
         return json.loads(text)
     except Exception as e:
-        return {"error": str(e), "raw": str(data)}
+        return {"error": str(e), "raw": str(data)[:500]}
 
 @router.post("/onboarding/save-timetable")
 async def save_timetable(request: dict):
     user_id = request["user_id"]
     section = request["section"]
     subjects = request["subjects"]
-    schedule = request.get("schedule", {})
     db = get_db()
-
     for subject_name in subjects:
         existing = db.table("subjects").select("*").eq("user_id", user_id).eq("name", subject_name).execute()
         if not existing.data:
@@ -91,7 +85,6 @@ async def save_timetable(request: dict):
                 "name": subject_name,
                 "color": "#00ff88"
             }).execute()
-
     db.table("users").update({"section": section, "onboarded": True}).eq("id", user_id).execute()
     return {"message": "timetable saved", "subjects_added": len(subjects)}
 
@@ -99,13 +92,13 @@ async def save_timetable(request: dict):
 async def parse_coe(user_id: str, file: UploadFile = File(...)):
     contents = await file.read()
     b64 = base64.b64encode(contents).decode()
+    mime = file.content_type or "application/pdf"
 
-    prompt = """This is a college Calendar of Events (COE) or academic calendar. 
-Extract all holidays and non-working days. Return ONLY valid JSON:
+    prompt = """This is a college Calendar of Events or academic calendar.
+Extract all holidays. Return ONLY valid JSON, no markdown:
 {
   "holidays": [
-    {"date": "2026-01-26", "name": "Republic Day"},
-    {"date": "2026-03-25", "name": "Holi"}
+    {"date": "2026-01-26", "name": "Republic Day"}
   ],
   "semester_end": "2026-05-15"
 }
@@ -118,7 +111,7 @@ Use YYYY-MM-DD format for dates."""
                 "contents": [{
                     "parts": [
                         {"text": prompt},
-                        {"inline_data": {"mime_type": file.content_type or "application/pdf", "data": b64}}
+                        {"inline_data": {"mime_type": mime, "data": b64}}
                     ]
                 }],
                 "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2048}
@@ -131,7 +124,6 @@ Use YYYY-MM-DD format for dates."""
         text = data["candidates"][0]["content"]["parts"][0]["text"]
         text = text.replace("```json", "").replace("```", "").strip()
         result = json.loads(text)
-
         db = get_db()
         db.table("holidays").delete().eq("user_id", user_id).execute()
         for holiday in result.get("holidays", []):
@@ -140,7 +132,6 @@ Use YYYY-MM-DD format for dates."""
                 "date": holiday["date"],
                 "name": holiday["name"]
             }).execute()
-
         return {"message": "COE parsed", "holidays_added": len(result.get("holidays", [])), "data": result}
     except Exception as e:
         return {"error": str(e)}
@@ -149,13 +140,13 @@ Use YYYY-MM-DD format for dates."""
 async def parse_screenshot(user_id: str, file: UploadFile = File(...)):
     contents = await file.read()
     b64 = base64.b64encode(contents).decode()
+    mime = file.content_type or "image/jpeg"
 
-    prompt = """This is a screenshot from a college app showing attendance. 
-Extract attendance data for each subject. Return ONLY valid JSON:
+    prompt = """This is a screenshot from a college app showing attendance.
+Extract attendance data for each subject. Return ONLY valid JSON, no markdown:
 {
   "subjects": [
-    {"name": "Data Structures", "attended": 38, "total": 46, "percentage": 82.6},
-    {"name": "DBMS", "attended": 32, "total": 40, "percentage": 80.0}
+    {"name": "Data Structures", "attended": 38, "total": 46, "percentage": 82.6}
   ]
 }"""
 
@@ -166,7 +157,7 @@ Extract attendance data for each subject. Return ONLY valid JSON:
                 "contents": [{
                     "parts": [
                         {"text": prompt},
-                        {"inline_data": {"mime_type": "image/jpeg", "data": b64}}
+                        {"inline_data": {"mime_type": mime, "data": b64}}
                     ]
                 }],
                 "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1024}
@@ -179,10 +170,8 @@ Extract attendance data for each subject. Return ONLY valid JSON:
         text = data["candidates"][0]["content"]["parts"][0]["text"]
         text = text.replace("```json", "").replace("```", "").strip()
         result = json.loads(text)
-
         db = get_db()
         user_subjects = db.table("subjects").select("*").eq("user_id", user_id).execute().data
-
         updated = 0
         for item in result.get("subjects", []):
             matching = next((s for s in user_subjects if s["name"].lower() in item["name"].lower() or item["name"].lower() in s["name"].lower()), None)
@@ -190,18 +179,16 @@ Extract attendance data for each subject. Return ONLY valid JSON:
                 for i in range(item["attended"]):
                     db.table("attendance_records").insert({
                         "subject_id": matching["id"],
-                        "date": f"2026-01-{i+1:02d}",
+                        "date": f"2026-01-{(i%28)+1:02d}",
                         "status": "attended"
                     }).execute()
-                total_needed = item["total"] - item["attended"]
-                for i in range(total_needed):
+                for i in range(item["total"] - item["attended"]):
                     db.table("attendance_records").insert({
                         "subject_id": matching["id"],
-                        "date": f"2026-02-{i+1:02d}",
+                        "date": f"2026-02-{(i%28)+1:02d}",
                         "status": "bunked"
                     }).execute()
                 updated += 1
-
         return {"message": f"imported attendance for {updated} subjects", "data": result}
     except Exception as e:
         return {"error": str(e)}
