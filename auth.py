@@ -8,7 +8,7 @@ router = APIRouter()
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-REDIRECT_URI = "http://127.0.0.1:8000/auth/callback"
+REDIRECT_URI = "https://attendease-backend-wrag.onrender.com/auth/callback"
 
 @router.get("/auth/google")
 def google_login():
