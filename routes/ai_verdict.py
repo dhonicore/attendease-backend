@@ -44,9 +44,5 @@ Reply ONLY in this exact JSON format, no markdown, no extra text:
         )
         data = res.json()
 
-    try:
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
-        text = text.replace("```json", "").replace("```", "").strip()
-        return json.loads(text)
-    except Exception as e:
-        return {"overall_verdict": str(e), "overall_score": 5, "advice": str(data)}
+    # return raw response for debugging
+    return {"debug": data}
