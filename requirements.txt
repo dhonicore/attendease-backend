@@ -7,6 +7,7 @@ click==8.3.1
 deprecation==2.1.0
 distro==1.9.0
 fastapi==0.135.1
+git-filter-repo==2.47.0
 gotrue==2.9.1
 h11==0.14.0
 h2==4.3.0
