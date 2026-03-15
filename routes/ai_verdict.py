@@ -7,7 +7,7 @@ from database import get_db
 router = APIRouter()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key={GEMINI_API_KEY}"
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_API_KEY}"
 
 @router.get("/ai/verdict/{user_id}")
 async def get_verdict(user_id: str, min_attendance: int = 75):
