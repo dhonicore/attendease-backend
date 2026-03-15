@@ -25,20 +25,20 @@ async def get_verdict(user_id: str, min_attendance: int = 75):
         pct = round((attended / total * 100), 1) if total > 0 else 0
         subject_summaries.append(f"{subject['name']}: {pct}% ({attended}/{total})")
 
-    prompt = f"""You are a brutally honest attendance advisor for Indian college students. Min attendance required: {min_attendance}%.
+    prompt = f"""You are a brutally honest attendance advisor for Indian college students. Min attendance: {min_attendance}%.
 
 Subjects:
 {chr(10).join(subject_summaries)}
 
-Reply ONLY in this exact JSON format, no markdown, no extra text:
-{{"overall_verdict": "one punchy sentence about their situation", "overall_score": 7, "advice": "two sentences on what they should do this week"}}"""
+Reply ONLY valid JSON, no markdown, no extra text:
+{{"overall_verdict": "one punchy sentence", "overall_score": 7, "advice": "one sentence on what to do"}}"""
 
     async with httpx.AsyncClient() as client:
         res = await client.post(
             GEMINI_URL,
             json={
                 "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 500}
+                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024}
             },
             timeout=30
         )
