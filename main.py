@@ -7,6 +7,8 @@ from routes.subjects import router as subjects_router
 from routes.attendance import router as attendance_router
 from routes.dashboard import router as dashboard_router
 from routes.ai_verdict import router as ai_router
+from routes.onboarding import router as onboarding_router
+app.include_router(onboarding_router)
 
 load_dotenv()
 
