@@ -56,5 +56,5 @@ async def google_callback(code: str):
 
     name = user.get('name', '').replace(' ', '%20')
     return RedirectResponse(
-        f"http://127.0.0.1:5500/index.html?user_id={user['id']}&name={name}&email={user['email']}"
-    )
+    f"https://attendease-frontend.vercel.app/index.html?user_id={user['id']}&name={name}&email={user['email']}"
+)
