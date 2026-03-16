@@ -48,20 +48,19 @@ async def parse_timetable(user_id: str, file: UploadFile = File(...)):
         pdf_text = ""
 
     if len(pdf_text.strip()) >= 100:
-        parts = [{"text": f"""Extract timetable data from this college timetable text.
-Find ALL sections (A, B, C, D, E, F, G, H etc) and their core subjects.
-Only include real academic subjects. Ignore: COE, IDP, MOOC, Mentoring, Makerspace, ICP, TYL, Assignment, Lab slots, SHORT BREAK, LUNCH BREAK.
-
-Return ONLY valid JSON, no markdown, no extra text:
+        parts = [{"text": f"""From this timetable, extract section names and subject names only.
+Return ONLY this JSON, no markdown:
 {{
-  "sections": ["A", "B", "C"],
+  "sections": ["A", "B", "C", "D", "E", "F", "G", "H"],
   "subjects_by_section": {{
     "A": ["Applied Mathematics II", "Applied Chemistry", "Introduction to AI and Applications", "Introduction to Electrical Engineering", "Python Programming", "Communication Skills", "Indian Constitution and Engineering Ethics"]
   }}
 }}
+Use the SAME subjects for ALL sections since they share the same curriculum.
+Only list unique section letters found in the document.
 
 Timetable text:
-{pdf_text[:8000]}"""}]
+{pdf_text[:6000]}"""}]
     else:
         b64 = base64.b64encode(contents).decode()
         mime = file.content_type or "application/pdf"
@@ -144,7 +143,7 @@ Calendar text:
             GEMINI_URL,
             json={
                 "contents": [{"parts": parts}],
-                "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2048}
+                "generationConfig": {"temperature": 0.1, "maxOutputTokens": 4096}
             },
             timeout=60
         )
