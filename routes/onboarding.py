@@ -38,24 +38,23 @@ async def parse_timetable(user_id: str, file: UploadFile = File(...)):
 
     pdf_text = ""
     try:
-         import pypdf
-         reader = pypdf.PdfReader(io.BytesIO(contents))
-         for page in reader.pages:
-            pdf_text += page.extract_text() + "\n"
+        import pypdf
+        reader = pypdf.PdfReader(io.BytesIO(contents))
+        for page in reader.pages:
+            extracted = page.extract_text()
+            if extracted:
+                pdf_text += extracted + "\n"
     except Exception:
         pdf_text = ""
 
-    if len(pdf_text.strip()) < 100:
-        b64 = base64.b64encode(contents).decode()
-        mime = file.content_type or "application/pdf"
-        parts = [{"text": f"""Extract timetable data from this text. Find all sections and their subjects.
-For lab subjects like "A1(CHE)/A2(PY)" treat them as separate lab subjects.
-The main subjects are the core ones that appear every day like MATHS, CHEM, AI, ELE, PYTHON, ENG.
-Ignore COE, IDP, MOOC, Mentoring, Makerspace, ICP, TYL, Assignment slots.
+    if len(pdf_text.strip()) >= 100:
+        parts = [{"text": f"""Extract timetable data from this college timetable text.
+Find ALL sections (A, B, C, D, E, F, G, H etc) and their core subjects.
+Only include real academic subjects. Ignore: COE, IDP, MOOC, Mentoring, Makerspace, ICP, TYL, Assignment, Lab slots, SHORT BREAK, LUNCH BREAK.
 
-Return ONLY valid JSON, no markdown:
+Return ONLY valid JSON, no markdown, no extra text:
 {{
-  "sections": ["A", "B", "C", "D", "E", "F", "G", "H"],
+  "sections": ["A", "B", "C"],
   "subjects_by_section": {{
     "A": ["Applied Mathematics II", "Applied Chemistry", "Introduction to AI and Applications", "Introduction to Electrical Engineering", "Python Programming", "Communication Skills", "Indian Constitution and Engineering Ethics"]
   }}
@@ -63,6 +62,13 @@ Return ONLY valid JSON, no markdown:
 
 Timetable text:
 {pdf_text[:8000]}"""}]
+    else:
+        b64 = base64.b64encode(contents).decode()
+        mime = file.content_type or "application/pdf"
+        parts = [
+            {"text": "Extract all sections and subjects from this timetable. Return ONLY JSON no markdown: {\"sections\": [\"A\", \"B\"], \"subjects_by_section\": {\"A\": [\"Maths\", \"Physics\", \"Chemistry\"]}}"},
+            {"inline_data": {"mime_type": mime, "data": b64}}
+        ]
 
     async with httpx.AsyncClient() as client:
         res = await client.post(
@@ -80,7 +86,7 @@ Timetable text:
         text = text.replace("```json", "").replace("```", "").strip()
         return json.loads(text)
     except Exception as e:
-        return {"error": str(e), "pdf_text_length": len(pdf_text), "raw": str(data)[:500]}
+        return {"error": str(e), "pdf_length": len(pdf_text), "raw": str(data)[:300]}
 
 @router.post("/onboarding/save-timetable")
 async def save_timetable(request: dict):
@@ -105,31 +111,33 @@ async def parse_coe(user_id: str, file: UploadFile = File(...)):
 
     pdf_text = ""
     try:
-        import PyPDF2
-        reader = PyPDF2.PdfReader(io.BytesIO(contents))
+        import pypdf
+        reader = pypdf.PdfReader(io.BytesIO(contents))
         for page in reader.pages:
-            pdf_text += page.extract_text() + "\n"
+            extracted = page.extract_text()
+            if extracted:
+                pdf_text += extracted + "\n"
     except Exception:
         pdf_text = ""
 
-    if len(pdf_text.strip()) < 100:
-        b64 = base64.b64encode(contents).decode()
-        mime = file.content_type or "application/pdf"
-        parts = [
-            {"text": "Extract all holidays from this academic calendar. Return ONLY JSON no markdown: {\"holidays\": [{\"date\": \"2026-01-26\", \"name\": \"Republic Day\"}], \"semester_end\": \"2026-05-15\"}"},
-            {"inline_data": {"mime_type": mime, "data": b64}}
-        ]
-    else:
-        parts = [{"text": f"""Extract all holidays from this academic calendar.
+    if len(pdf_text.strip()) >= 100:
+        parts = [{"text": f"""Extract all holidays from this college academic calendar.
 Return ONLY valid JSON, no markdown:
 {{
   "holidays": [{{"date": "2026-01-26", "name": "Republic Day"}}],
   "semester_end": "2026-05-15"
 }}
-Use YYYY-MM-DD format.
+Use YYYY-MM-DD format for all dates.
 
 Calendar text:
-{pdf_text[:4000]}"""}]
+{pdf_text[:8000]}"""}]
+    else:
+        b64 = base64.b64encode(contents).decode()
+        mime = file.content_type or "application/pdf"
+        parts = [
+            {"text": "Extract all holidays from this academic calendar. Return ONLY JSON: {\"holidays\": [{\"date\": \"2026-01-26\", \"name\": \"Republic Day\"}], \"semester_end\": \"2026-05-15\"}"},
+            {"inline_data": {"mime_type": mime, "data": b64}}
+        ]
 
     async with httpx.AsyncClient() as client:
         res = await client.post(
@@ -165,7 +173,7 @@ async def parse_screenshot(user_id: str, file: UploadFile = File(...)):
     mime = file.content_type or "image/jpeg"
 
     parts = [
-        {"text": "This is a screenshot from a college app showing attendance. Extract attendance data. Return ONLY valid JSON no markdown: {\"subjects\": [{\"name\": \"Data Structures\", \"attended\": 38, \"total\": 46, \"percentage\": 82.6}]}"},
+        {"text": "This is a screenshot from a college attendance portal. Extract attendance for each subject. Return ONLY valid JSON no markdown: {\"subjects\": [{\"name\": \"Data Structures\", \"attended\": 38, \"total\": 46, \"percentage\": 82.6}]}"},
         {"inline_data": {"mime_type": mime, "data": b64}}
     ]
 
