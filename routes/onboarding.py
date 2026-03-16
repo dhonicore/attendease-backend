@@ -80,7 +80,7 @@ Timetable text:
         text = text.replace("```json", "").replace("```", "").strip()
         return json.loads(text)
     except Exception as e:
-        return {"error": str(e), "raw": str(data)[:300]}
+        return {"error": str(e), "pdf_text_length": len(pdf_text), "raw": str(data)[:500]}
 
 @router.post("/onboarding/save-timetable")
 async def save_timetable(request: dict):
