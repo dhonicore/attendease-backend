@@ -38,7 +38,7 @@ Reply ONLY valid JSON, no markdown, no extra text:
             GEMINI_URL,
             json={
                 "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024}
+                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 2048}
             },
             timeout=30
         )

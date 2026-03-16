@@ -8,6 +8,7 @@ from routes.attendance import router as attendance_router
 from routes.dashboard import router as dashboard_router
 from routes.ai_verdict import router as ai_router
 from routes.onboarding import router as onboarding_router
+from routes.cleanup import router as cleanup_router
 
 load_dotenv()
 
@@ -27,6 +28,7 @@ app.include_router(attendance_router)
 app.include_router(dashboard_router)
 app.include_router(ai_router)
 app.include_router(onboarding_router)
+app.include_router(cleanup_router)
 
 @app.get("/")
 def root():

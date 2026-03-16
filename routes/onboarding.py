@@ -48,22 +48,21 @@ async def parse_timetable(user_id: str, file: UploadFile = File(...)):
     if len(pdf_text.strip()) < 100:
         b64 = base64.b64encode(contents).decode()
         mime = file.content_type or "application/pdf"
-        parts = [
-            {"text": "Extract timetable sections and subjects. Return ONLY JSON no markdown: {\"sections\": [\"A\"], \"subjects_by_section\": {\"A\": [\"Maths\", \"Physics\"]}}"},
-            {"inline_data": {"mime_type": mime, "data": b64}}
-        ]
-    else:
         parts = [{"text": f"""Extract timetable data from this text. Find all sections and their subjects.
+For lab subjects like "A1(CHE)/A2(PY)" treat them as separate lab subjects.
+The main subjects are the core ones that appear every day like MATHS, CHEM, AI, ELE, PYTHON, ENG.
+Ignore COE, IDP, MOOC, Mentoring, Makerspace, ICP, TYL, Assignment slots.
+
 Return ONLY valid JSON, no markdown:
 {{
-  "sections": ["A", "B", "C"],
+  "sections": ["A", "B", "C", "D", "E", "F", "G", "H"],
   "subjects_by_section": {{
-    "A": ["Applied Mathematics II", "Applied Chemistry", "Introduction to AI", "Introduction to Electrical Engineering", "Python Programming", "Communication Skills"]
+    "A": ["Applied Mathematics II", "Applied Chemistry", "Introduction to AI and Applications", "Introduction to Electrical Engineering", "Python Programming", "Communication Skills", "Indian Constitution and Engineering Ethics"]
   }}
 }}
 
 Timetable text:
-{pdf_text[:4000]}"""}]
+{pdf_text[:8000]}"""}]
 
     async with httpx.AsyncClient() as client:
         res = await client.post(
