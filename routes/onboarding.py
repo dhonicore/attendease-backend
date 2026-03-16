@@ -38,9 +38,9 @@ async def parse_timetable(user_id: str, file: UploadFile = File(...)):
 
     pdf_text = ""
     try:
-        import PyPDF2
-        reader = PyPDF2.PdfReader(io.BytesIO(contents))
-        for page in reader.pages:
+         import pypdf
+         reader = pypdf.PdfReader(io.BytesIO(contents))
+         for page in reader.pages:
             pdf_text += page.extract_text() + "\n"
     except Exception:
         pdf_text = ""
