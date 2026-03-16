@@ -2,6 +2,7 @@ import os
 import json
 import httpx
 import base64
+import io
 from fastapi import APIRouter, UploadFile, File
 from database import get_db
 from pydantic import BaseModel
@@ -34,30 +35,41 @@ def update_profile(data: ProfileUpdate):
 @router.post("/onboarding/timetable/{user_id}")
 async def parse_timetable(user_id: str, file: UploadFile = File(...)):
     contents = await file.read()
-    b64 = base64.b64encode(contents).decode()
-    mime = file.content_type or "application/pdf"
 
-    prompt = """Extract timetable data from this document. Find all sections and their subjects.
-Return ONLY this JSON, no markdown:
-{
-  "sections": ["A", "B"],
-  "subjects_by_section": {
-    "A": ["Maths", "Physics", "Chemistry"],
-    "B": ["Maths", "Physics", "Chemistry"]
-  }
-}
-If you cannot find sections, use "DEFAULT" as section name and list all subjects you find."""
+    pdf_text = ""
+    try:
+        import PyPDF2
+        reader = PyPDF2.PdfReader(io.BytesIO(contents))
+        for page in reader.pages:
+            pdf_text += page.extract_text() + "\n"
+    except Exception:
+        pdf_text = ""
+
+    if len(pdf_text.strip()) < 100:
+        b64 = base64.b64encode(contents).decode()
+        mime = file.content_type or "application/pdf"
+        parts = [
+            {"text": "Extract timetable sections and subjects. Return ONLY JSON no markdown: {\"sections\": [\"A\"], \"subjects_by_section\": {\"A\": [\"Maths\", \"Physics\"]}}"},
+            {"inline_data": {"mime_type": mime, "data": b64}}
+        ]
+    else:
+        parts = [{"text": f"""Extract timetable data from this text. Find all sections and their subjects.
+Return ONLY valid JSON, no markdown:
+{{
+  "sections": ["A", "B", "C"],
+  "subjects_by_section": {{
+    "A": ["Applied Mathematics II", "Applied Chemistry", "Introduction to AI", "Introduction to Electrical Engineering", "Python Programming", "Communication Skills"]
+  }}
+}}
+
+Timetable text:
+{pdf_text[:4000]}"""}]
 
     async with httpx.AsyncClient() as client:
         res = await client.post(
             GEMINI_URL,
             json={
-                "contents": [{
-                    "parts": [
-                        {"text": prompt},
-                        {"inline_data": {"mime_type": mime, "data": b64}}
-                    ]
-                }],
+                "contents": [{"parts": parts}],
                 "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2048}
             },
             timeout=60
@@ -69,7 +81,7 @@ If you cannot find sections, use "DEFAULT" as section name and list all subjects
         text = text.replace("```json", "").replace("```", "").strip()
         return json.loads(text)
     except Exception as e:
-        return {"error": str(e), "raw": str(data)[:500]}
+        return {"error": str(e), "raw": str(data)[:300]}
 
 @router.post("/onboarding/save-timetable")
 async def save_timetable(request: dict):
@@ -91,29 +103,40 @@ async def save_timetable(request: dict):
 @router.post("/onboarding/coe/{user_id}")
 async def parse_coe(user_id: str, file: UploadFile = File(...)):
     contents = await file.read()
-    b64 = base64.b64encode(contents).decode()
-    mime = file.content_type or "application/pdf"
 
-    prompt = """This is a college Calendar of Events or academic calendar.
-Extract all holidays. Return ONLY valid JSON, no markdown:
-{
-  "holidays": [
-    {"date": "2026-01-26", "name": "Republic Day"}
-  ],
+    pdf_text = ""
+    try:
+        import PyPDF2
+        reader = PyPDF2.PdfReader(io.BytesIO(contents))
+        for page in reader.pages:
+            pdf_text += page.extract_text() + "\n"
+    except Exception:
+        pdf_text = ""
+
+    if len(pdf_text.strip()) < 100:
+        b64 = base64.b64encode(contents).decode()
+        mime = file.content_type or "application/pdf"
+        parts = [
+            {"text": "Extract all holidays from this academic calendar. Return ONLY JSON no markdown: {\"holidays\": [{\"date\": \"2026-01-26\", \"name\": \"Republic Day\"}], \"semester_end\": \"2026-05-15\"}"},
+            {"inline_data": {"mime_type": mime, "data": b64}}
+        ]
+    else:
+        parts = [{"text": f"""Extract all holidays from this academic calendar.
+Return ONLY valid JSON, no markdown:
+{{
+  "holidays": [{{"date": "2026-01-26", "name": "Republic Day"}}],
   "semester_end": "2026-05-15"
-}
-Use YYYY-MM-DD format for dates."""
+}}
+Use YYYY-MM-DD format.
+
+Calendar text:
+{pdf_text[:4000]}"""}]
 
     async with httpx.AsyncClient() as client:
         res = await client.post(
             GEMINI_URL,
             json={
-                "contents": [{
-                    "parts": [
-                        {"text": prompt},
-                        {"inline_data": {"mime_type": mime, "data": b64}}
-                    ]
-                }],
+                "contents": [{"parts": parts}],
                 "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2048}
             },
             timeout=60
@@ -142,24 +165,16 @@ async def parse_screenshot(user_id: str, file: UploadFile = File(...)):
     b64 = base64.b64encode(contents).decode()
     mime = file.content_type or "image/jpeg"
 
-    prompt = """This is a screenshot from a college app showing attendance.
-Extract attendance data for each subject. Return ONLY valid JSON, no markdown:
-{
-  "subjects": [
-    {"name": "Data Structures", "attended": 38, "total": 46, "percentage": 82.6}
-  ]
-}"""
+    parts = [
+        {"text": "This is a screenshot from a college app showing attendance. Extract attendance data. Return ONLY valid JSON no markdown: {\"subjects\": [{\"name\": \"Data Structures\", \"attended\": 38, \"total\": 46, \"percentage\": 82.6}]}"},
+        {"inline_data": {"mime_type": mime, "data": b64}}
+    ]
 
     async with httpx.AsyncClient() as client:
         res = await client.post(
             GEMINI_URL,
             json={
-                "contents": [{
-                    "parts": [
-                        {"text": prompt},
-                        {"inline_data": {"mime_type": mime, "data": b64}}
-                    ]
-                }],
+                "contents": [{"parts": parts}],
                 "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1024}
             },
             timeout=30
