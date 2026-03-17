@@ -74,7 +74,7 @@ Timetable text:
             GEMINI_URL,
             json={
                 "contents": [{"parts": parts}],
-                "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2048}
+                "generationConfig": {"temperature": 0.1, "maxOutputTokens": 4096}
             },
             timeout=60
         )
