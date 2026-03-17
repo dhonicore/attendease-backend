@@ -6,6 +6,7 @@ import io
 from fastapi import APIRouter, UploadFile, File
 from database import get_db
 from pydantic import BaseModel
+from typing import List
 
 router = APIRouter()
 
@@ -51,9 +52,9 @@ async def parse_timetable(user_id: str, file: UploadFile = File(...)):
         parts = [{"text": f"""From this timetable, extract section names and subject names only.
 Return ONLY this JSON, no markdown:
 {{
-  "sections": ["A", "B", "C", "D", "E", "F", "G", "H"],
+  "sections": ["A", "B", "C"],
   "subjects_by_section": {{
-    "A": ["Applied Mathematics II", "Applied Chemistry", "Introduction to AI and Applications", "Introduction to Electrical Engineering", "Python Programming", "Communication Skills", "Indian Constitution and Engineering Ethics"]
+    "A": ["Applied Mathematics II", "Applied Chemistry", "Introduction to AI and Applications"]
   }}
 }}
 Use the SAME subjects for ALL sections since they share the same curriculum.
@@ -165,15 +166,57 @@ Calendar text:
     except Exception as e:
         return {"error": str(e)}
 
-@router.post("/onboarding/screenshot/{user_id}")
-async def parse_screenshot(user_id: str, file: UploadFile = File(...)):
-    contents = await file.read()
-    b64 = base64.b64encode(contents).decode()
-    mime = file.content_type or "image/jpeg"
 
+# ── SCREENSHOT HELPER ──────────────────────────────────────────────────────────
+
+def clean_subject_name(raw_name: str) -> str:
+    """
+    Convert portal subject names to clean display names.
+    - Strips subject codes like [ 1BPLC205B ] or [ 1BPLC205B (P) ]
+    - If code ends with (P) → append ' Lab' to the name
+    - Strips extra whitespace
+    Examples:
+      'Python Programming [ 1BPLC205B ]'      → 'Python Programming'
+      'Python Programming [ 1BPLC205B (P) ]'  → 'Python Programming Lab'
+      'Applied Chemistry [ 1BCHES202 (P) ]'   → 'Applied Chemistry Lab'
+    """
+    import re
+    is_lab = bool(re.search(r'\(\s*P\s*\)', raw_name, re.IGNORECASE))
+    # Remove the bracketed code entirely
+    name = re.sub(r'\[.*?\]', '', raw_name).strip()
+    # Remove any leftover parens like (P) outside brackets
+    name = re.sub(r'\(\s*P\s*\)', '', name, flags=re.IGNORECASE).strip()
+    # Remove trailing punctuation/dashes
+    name = name.strip(' -–—')
+    if is_lab:
+        name = name + " Lab"
+    return name
+
+
+async def parse_single_screenshot(image_bytes: bytes, mime_type: str) -> list:
+    """
+    Send one screenshot to Gemini and get back a list of subjects with attendance.
+    Returns list of dicts: {name, code, attended, total, percentage, is_lab}
+    """
+    b64 = base64.b64encode(image_bytes).decode()
     parts = [
-        {"text": "This is a screenshot from a college attendance portal. Extract attendance for each subject. Return ONLY valid JSON no markdown: {\"subjects\": [{\"name\": \"Data Structures\", \"attended\": 38, \"total\": 46, \"percentage\": 82.6}]}"},
-        {"inline_data": {"mime_type": mime, "data": b64}}
+        {
+            "text": """This is a screenshot from a college attendance portal.
+Extract attendance for every subject listed.
+Subject names may have a code in brackets like [ 1BPLC205B ] or [ 1BPLC205B (P) ].
+The (P) means it is a practical/lab subject.
+
+Return ONLY valid JSON, no markdown:
+{
+  "subjects": [
+    {"name": "Python Programming [ 1BPLC205B ]", "attended": 9, "total": 11, "percentage": 81.82},
+    {"name": "Python Programming [ 1BPLC205B (P) ]", "attended": 1, "total": 2, "percentage": 50.0}
+  ]
+}
+
+Include ALL subjects visible, both theory and lab (P) ones."""
+        },
+        {"inline_data": {"mime_type": mime_type, "data": b64}}
     ]
 
     async with httpx.AsyncClient() as client:
@@ -181,35 +224,117 @@ async def parse_screenshot(user_id: str, file: UploadFile = File(...)):
             GEMINI_URL,
             json={
                 "contents": [{"parts": parts}],
-                "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1024}
+                "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2048}
             },
-            timeout=30
+            timeout=45
         )
         data = res.json()
 
-    try:
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
-        text = text.replace("```json", "").replace("```", "").strip()
-        result = json.loads(text)
-        db = get_db()
-        user_subjects = db.table("subjects").select("*").eq("user_id", user_id).execute().data
-        updated = 0
-        for item in result.get("subjects", []):
-            matching = next((s for s in user_subjects if s["name"].lower() in item["name"].lower() or item["name"].lower() in s["name"].lower()), None)
-            if matching:
-                for i in range(item["attended"]):
-                    db.table("attendance_records").insert({
-                        "subject_id": matching["id"],
-                        "date": f"2026-01-{(i%28)+1:02d}",
-                        "status": "attended"
-                    }).execute()
-                for i in range(item["total"] - item["attended"]):
-                    db.table("attendance_records").insert({
-                        "subject_id": matching["id"],
-                        "date": f"2026-02-{(i%28)+1:02d}",
-                        "status": "bunked"
-                    }).execute()
-                updated += 1
-        return {"message": f"imported attendance for {updated} subjects", "data": result}
-    except Exception as e:
-        return {"error": str(e)}
+    text = data["candidates"][0]["content"]["parts"][0]["text"]
+    text = text.replace("```json", "").replace("```", "").strip()
+    result = json.loads(text)
+    return result.get("subjects", [])
+
+
+def merge_screenshots(list1: list, list2: list) -> list:
+    """
+    Merge two subject lists from two screenshots.
+    Deduplicates by cleaned name — keeps first occurrence.
+    """
+    seen = {}
+    for item in list1 + list2:
+        clean = clean_subject_name(item["name"])
+        if clean not in seen:
+            item["_clean_name"] = clean
+            seen[clean] = item
+    return list(seen.values())
+
+
+# ── SCREENSHOT ENDPOINT ────────────────────────────────────────────────────────
+
+@router.post("/onboarding/screenshot/{user_id}")
+async def parse_screenshot(user_id: str, files: List[UploadFile] = File(...)):
+    """
+    Accepts 1 or 2 screenshots. Merges results and saves to DB.
+    Theory subjects: saved as-is (e.g. 'Python Programming')
+    Lab subjects:    saved with 'Lab' suffix (e.g. 'Python Programming Lab')
+    """
+    all_subjects = []
+
+    for upload in files:
+        contents = await upload.read()
+        mime = upload.content_type or "image/jpeg"
+        try:
+            subjects = await parse_single_screenshot(contents, mime)
+            all_subjects.extend(subjects)
+        except Exception as e:
+            # If one screenshot fails, continue with the other
+            continue
+
+    if not all_subjects:
+        return {"error": "Could not read any subjects from the screenshots"}
+
+    # Merge & deduplicate
+    merged = merge_screenshots(all_subjects, [])
+
+    # Save to DB
+    db = get_db()
+    user_subjects = db.table("subjects").select("*").eq("user_id", user_id).execute().data
+
+    updated = 0
+    created = 0
+
+    for item in merged:
+        clean_name = item["_clean_name"]
+        attended   = int(item.get("attended", 0))
+        total      = int(item.get("total", 0))
+
+        if total == 0:
+            continue
+
+        # Find matching existing subject (fuzzy: check if names overlap)
+        matching = next(
+            (s for s in user_subjects
+             if s["name"].lower() == clean_name.lower()
+             or clean_name.lower() in s["name"].lower()
+             or s["name"].lower() in clean_name.lower()),
+            None
+        )
+
+        if not matching:
+            # Create the subject first
+            new_sub = db.table("subjects").insert({
+                "user_id": user_id,
+                "name": clean_name,
+                "color": "#00ff88"
+            }).execute()
+            if new_sub.data:
+                matching = new_sub.data[0]
+                user_subjects.append(matching)
+                created += 1
+
+        if matching:
+            sub_id = matching["id"]
+            # Insert attendance records
+            # Attended classes → status: attended
+            for i in range(attended):
+                db.table("attendance_records").insert({
+                    "subject_id": sub_id,
+                    "date": f"2026-01-{(i % 28) + 1:02d}",
+                    "status": "attended"
+                }).execute()
+            # Bunked classes → status: bunked
+            bunked = total - attended
+            for i in range(bunked):
+                db.table("attendance_records").insert({
+                    "subject_id": sub_id,
+                    "date": f"2026-02-{(i % 28) + 1:02d}",
+                    "status": "bunked"
+                }).execute()
+            updated += 1
+
+    return {
+        "message": f"Imported attendance for {updated} subjects ({created} new subjects created)",
+        "subjects_found": len(merged),
+        "subjects": [{"name": s["_clean_name"], "attended": s.get("attended"), "total": s.get("total")} for s in merged]
+    }
