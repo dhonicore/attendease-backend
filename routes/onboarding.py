@@ -13,12 +13,18 @@ router = APIRouter()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
 
+DAY_MAP = {
+    "monday": 0, "tuesday": 1, "wednesday": 2,
+    "thursday": 3, "friday": 4, "saturday": 5
+}
+
 class ProfileUpdate(BaseModel):
     user_id: str
     college: str
     year: str
     semester: str
     section: str
+    batch: str = ""
     min_attendance: int = 75
 
 @router.post("/onboarding/profile")
@@ -29,13 +35,23 @@ def update_profile(data: ProfileUpdate):
         "year": data.year,
         "semester": data.semester,
         "section": data.section,
+        "batch": data.batch,
         "min_attendance": data.min_attendance,
     }).eq("id", data.user_id).execute()
     return {"message": "profile updated"}
 
+
 @router.post("/onboarding/timetable/{user_id}")
 async def parse_timetable(user_id: str, file: UploadFile = File(...)):
     contents = await file.read()
+
+    # Get user batch and section
+    db = get_db()
+    user_row = db.table("users").select("batch,section").eq("id", user_id).execute()
+    batch = section = ""
+    if user_row.data:
+        batch   = user_row.data[0].get("batch", "") or ""
+        section = user_row.data[0].get("section", "") or ""
 
     pdf_text = ""
     try:
@@ -48,25 +64,46 @@ async def parse_timetable(user_id: str, file: UploadFile = File(...)):
     except Exception:
         pdf_text = ""
 
-    if len(pdf_text.strip()) >= 100:
-        parts = [{"text": f"""From this timetable, extract section names and subject names only.
-Return ONLY this JSON, no markdown:
-{{
-  "sections": ["A", "B", "C"],
-  "subjects_by_section": {{
-    "A": ["Applied Mathematics II", "Applied Chemistry", "Introduction to AI and Applications"]
-  }}
-}}
-Use the SAME subjects for ALL sections since they share the same curriculum.
-Only list unique section letters found in the document.
+    batch_hint   = f"The student is in batch {batch}." if batch else ""
+    section_hint = f"The student is in section {section}." if section else ""
+
+    schedule_example = json.dumps({
+        "subjects": ["Applied Mathematics", "Physics", "Chemistry Lab"],
+        "schedule": {
+            "monday":    ["Applied Mathematics", "Physics", "Chemistry"],
+            "tuesday":   ["Chemistry Lab", "English", "Applied Mathematics"],
+            "wednesday": ["Chemistry", "Applied Mathematics"],
+            "thursday":  ["Physics", "Applied Mathematics", "Chemistry"],
+            "friday":    ["English", "Chemistry", "Physics"],
+            "saturday":  ["Applied Mathematics"]
+        }
+    }, indent=2)
+
+    prompt_text = f"""Extract the weekly timetable for this student from their college timetable document.
+{section_hint} {batch_hint}
+
+Instructions:
+- For each day Monday to Saturday, list which subjects this student has class
+- For lab subjects that rotate between batches (e.g. A1(CHE)/A2(PY)/A3(CHE)):
+  * If batch is known, only include the subject for THAT batch
+  * If batch is unknown, include all unique lab subjects
+- Use consistent subject names throughout
+- Only include days that actually have classes
+- Do not include breaks, lunch, mentoring, COE, IDP as subjects
+
+Return ONLY valid JSON, no markdown:
+{schedule_example}
 
 Timetable text:
-{pdf_text[:6000]}"""}]
+{pdf_text[:8000]}"""
+
+    if len(pdf_text.strip()) >= 100:
+        parts = [{"text": prompt_text}]
     else:
-        b64 = base64.b64encode(contents).decode()
+        b64  = base64.b64encode(contents).decode()
         mime = file.content_type or "application/pdf"
         parts = [
-            {"text": "Extract all sections and subjects from this timetable. Return ONLY JSON no markdown: {\"sections\": [\"A\", \"B\"], \"subjects_by_section\": {\"A\": [\"Maths\", \"Physics\", \"Chemistry\"]}}"},
+            {"text": prompt_text},
             {"inline_data": {"mime_type": mime, "data": b64}}
         ]
 
@@ -86,24 +123,67 @@ Timetable text:
         text = text.replace("```json", "").replace("```", "").strip()
         return json.loads(text)
     except Exception as e:
-        return {"error": str(e), "pdf_length": len(pdf_text), "raw": str(data)[:300]}
+        return {"error": str(e), "raw": str(data)[:300]}
+
 
 @router.post("/onboarding/save-timetable")
 async def save_timetable(request: dict):
-    user_id = request["user_id"]
-    section = request["section"]
+    user_id  = request["user_id"]
     subjects = request["subjects"]
+    schedule = request.get("schedule", {})
     db = get_db()
-    for subject_name in subjects:
-        existing = db.table("subjects").select("*").eq("user_id", user_id).eq("name", subject_name).execute()
-        if not existing.data:
-            db.table("subjects").insert({
+
+    # Save subjects (no duplicates)
+    subject_id_map = {}
+    for name in subjects:
+        existing = db.table("subjects").select("id,name").eq("user_id", user_id).eq("name", name).execute()
+        if existing.data:
+            subject_id_map[name] = existing.data[0]["id"]
+        else:
+            new_sub = db.table("subjects").insert({
                 "user_id": user_id,
-                "name": subject_name,
-                "color": "#00ff88"
+                "name":    name,
+                "color":   "#00ff88"
             }).execute()
-    db.table("users").update({"section": section, "onboarded": True}).eq("id", user_id).execute()
-    return {"message": "timetable saved", "subjects_added": len(subjects)}
+            if new_sub.data:
+                subject_id_map[name] = new_sub.data[0]["id"]
+
+    # Clear old timetable
+    db.table("timetable").delete().eq("user_id", user_id).execute()
+
+    # Save day-wise schedule
+    saved = 0
+    for day_name, day_subjects in schedule.items():
+        day_num = DAY_MAP.get(day_name.lower())
+        if day_num is None:
+            continue
+        for sub_name in day_subjects:
+            # Exact match first, then fuzzy
+            subject_id = subject_id_map.get(sub_name)
+            if not subject_id:
+                for saved_name, sid in subject_id_map.items():
+                    if (saved_name.lower() in sub_name.lower() or
+                            sub_name.lower() in saved_name.lower()):
+                        subject_id = sid
+                        break
+            if subject_id:
+                db.table("timetable").insert({
+                    "user_id":    user_id,
+                    "subject_id": subject_id,
+                    "day_of_week": str(day_num),
+                    "start_time": "",
+                    "end_time":   ""
+                }).execute()
+                saved += 1
+
+    db.table("users").update({"onboarded": True}).eq("id", user_id).execute()
+
+    return {
+        "message": "timetable saved",
+        "subjects_added": len(subject_id_map),
+        "timetable_entries": saved
+    }
+
 
 @router.post("/onboarding/coe/{user_id}")
 async def parse_coe(user_id: str, file: UploadFile = File(...)):
@@ -120,22 +200,29 @@ async def parse_coe(user_id: str, file: UploadFile = File(...)):
     except Exception:
         pdf_text = ""
 
-    if len(pdf_text.strip()) >= 100:
-        parts = [{"text": f"""Extract all holidays from this college academic calendar.
+    prompt = f"""Extract all holidays from this college academic calendar.
+Only extract actual holidays (days marked as HOLIDAY with no classes).
+Do NOT include workshops, seminars, events, or working Saturdays.
+Also extract semester start and end dates if visible.
+
 Return ONLY valid JSON, no markdown:
 {{
   "holidays": [{{"date": "2026-01-26", "name": "Republic Day"}}],
-  "semester_end": "2026-05-15"
+  "semester_start": "2026-02-24",
+  "semester_end": "2026-05-16"
 }}
-Use YYYY-MM-DD format for all dates.
+Use YYYY-MM-DD format.
 
 Calendar text:
-{pdf_text[:8000]}"""}]
+{pdf_text[:10000]}"""
+
+    if len(pdf_text.strip()) >= 100:
+        parts = [{"text": prompt}]
     else:
-        b64 = base64.b64encode(contents).decode()
+        b64  = base64.b64encode(contents).decode()
         mime = file.content_type or "application/pdf"
         parts = [
-            {"text": "Extract all holidays from this academic calendar. Return ONLY JSON: {\"holidays\": [{\"date\": \"2026-01-26\", \"name\": \"Republic Day\"}], \"semester_end\": \"2026-05-15\"}"},
+            {"text": prompt},
             {"inline_data": {"mime_type": mime, "data": b64}}
         ]
 
@@ -155,158 +242,130 @@ Calendar text:
         text = text.replace("```json", "").replace("```", "").strip()
         result = json.loads(text)
         db = get_db()
+
         db.table("holidays").delete().eq("user_id", user_id).execute()
         for holiday in result.get("holidays", []):
             db.table("holidays").insert({
                 "user_id": user_id,
-                "date": holiday["date"],
-                "name": holiday["name"]
+                "date":    holiday["date"],
+                "name":    holiday["name"]
             }).execute()
-        return {"message": "COE parsed", "holidays_added": len(result.get("holidays", [])), "data": result}
+
+        # Save semester config
+        try:
+            db.table("semester_config").delete().eq("user_id", user_id).execute()
+            db.table("semester_config").insert({
+                "user_id":        user_id,
+                "semester_start": result.get("semester_start", ""),
+                "semester_end":   result.get("semester_end", "")
+            }).execute()
+        except Exception:
+            pass
+
+        return {
+            "message": "COE parsed",
+            "holidays_added": len(result.get("holidays", [])),
+            "semester_start": result.get("semester_start", ""),
+            "semester_end":   result.get("semester_end", ""),
+        }
     except Exception as e:
         return {"error": str(e)}
 
 
-# ── SCREENSHOT HELPER ──────────────────────────────────────────────────────────
-
-def clean_subject_name(raw_name: str) -> str:
-    """
-    Convert portal subject names to clean display names.
-    - Strips subject codes like [ 1BPLC205B ] or [ 1BPLC205B (P) ]
-    - If code ends with (P) → append ' Lab' to the name
-    - Strips extra whitespace
-    Examples:
-      'Python Programming [ 1BPLC205B ]'      → 'Python Programming'
-      'Python Programming [ 1BPLC205B (P) ]'  → 'Python Programming Lab'
-      'Applied Chemistry [ 1BCHES202 (P) ]'   → 'Applied Chemistry Lab'
-    """
+@router.post("/onboarding/screenshot/{user_id}")
+async def parse_screenshot(user_id: str, files: List[UploadFile] = File(...)):
     import re
-    is_lab = bool(re.search(r'\(\s*P\s*\)', raw_name, re.IGNORECASE))
-    # Remove the bracketed code entirely
-    name = re.sub(r'\[.*?\]', '', raw_name).strip()
-    # Remove any leftover parens like (P) outside brackets
-    name = re.sub(r'\(\s*P\s*\)', '', name, flags=re.IGNORECASE).strip()
-    # Remove trailing punctuation/dashes
-    name = name.strip(' -–—')
-    if is_lab:
-        name = name + " Lab"
-    return name
 
+    def clean_name(raw: str) -> str:
+        is_lab = bool(re.search(r'\(\s*P\s*\)', raw, re.IGNORECASE))
+        name   = re.sub(r'\[.*?\]', '', raw).strip()
+        name   = re.sub(r'\(\s*P\s*\)', '', name, flags=re.IGNORECASE).strip()
+        name   = name.strip(' -–—')
+        if is_lab:
+            name = name + " Lab"
+        return name
 
-async def parse_single_screenshot(image_bytes: bytes, mime_type: str) -> list:
-    """
-    Send one screenshot to Gemini and get back a list of subjects with attendance.
-    Returns list of dicts: {name, code, attended, total, percentage, is_lab}
-    """
-    b64 = base64.b64encode(image_bytes).decode()
-    parts = [
-        {
-            "text": """This is a screenshot from a college attendance portal.
+    async def parse_one(image_bytes: bytes, mime_type: str) -> list:
+        b64   = base64.b64encode(image_bytes).decode()
+        parts = [
+            {"text": """This is a college attendance portal screenshot.
 Extract attendance for every subject listed.
-Subject names may have a code in brackets like [ 1BPLC205B ] or [ 1BPLC205B (P) ].
-The (P) means it is a practical/lab subject.
+Subject names may have codes like [1BPLC205B] or [1BPLC205B (P)].
+(P) = practical/lab subject.
 
 Return ONLY valid JSON, no markdown:
 {
   "subjects": [
-    {"name": "Python Programming [ 1BPLC205B ]", "attended": 9, "total": 11, "percentage": 81.82},
-    {"name": "Python Programming [ 1BPLC205B (P) ]", "attended": 1, "total": 2, "percentage": 50.0}
+    {"name": "Python Programming [1BPLC205B]", "attended": 9, "total": 11},
+    {"name": "Python Programming [1BPLC205B (P)]", "attended": 1, "total": 2}
   ]
 }
+Include ALL subjects — both theory and lab."""},
+            {"inline_data": {"mime_type": mime_type, "data": b64}}
+        ]
+        async with httpx.AsyncClient() as client:
+            res = await client.post(
+                GEMINI_URL,
+                json={
+                    "contents": [{"parts": parts}],
+                    "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2048}
+                },
+                timeout=45
+            )
+            d = res.json()
+        t = d["candidates"][0]["content"]["parts"][0]["text"]
+        t = t.replace("```json","").replace("```","").strip()
+        return json.loads(t).get("subjects", [])
 
-Include ALL subjects visible, both theory and lab (P) ones."""
-        },
-        {"inline_data": {"mime_type": mime_type, "data": b64}}
-    ]
-
-    async with httpx.AsyncClient() as client:
-        res = await client.post(
-            GEMINI_URL,
-            json={
-                "contents": [{"parts": parts}],
-                "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2048}
-            },
-            timeout=45
-        )
-        data = res.json()
-
-    text = data["candidates"][0]["content"]["parts"][0]["text"]
-    text = text.replace("```json", "").replace("```", "").strip()
-    result = json.loads(text)
-    return result.get("subjects", [])
-
-
-def merge_screenshots(list1: list, list2: list) -> list:
-    """
-    Merge two subject lists from two screenshots.
-    Deduplicates by cleaned name — keeps first occurrence.
-    """
-    seen = {}
-    for item in list1 + list2:
-        clean = clean_subject_name(item["name"])
-        if clean not in seen:
-            item["_clean_name"] = clean
-            seen[clean] = item
-    return list(seen.values())
-
-
-# ── SCREENSHOT ENDPOINT ────────────────────────────────────────────────────────
-
-@router.post("/onboarding/screenshot/{user_id}")
-async def parse_screenshot(user_id: str, files: List[UploadFile] = File(...)):
-    """
-    Accepts 1 or 2 screenshots. Merges results and saves to DB.
-    Theory subjects: saved as-is (e.g. 'Python Programming')
-    Lab subjects:    saved with 'Lab' suffix (e.g. 'Python Programming Lab')
-    """
+    # Parse all screenshots
     all_subjects = []
-
     for upload in files:
         contents = await upload.read()
-        mime = upload.content_type or "image/jpeg"
+        mime     = upload.content_type or "image/jpeg"
         try:
-            subjects = await parse_single_screenshot(contents, mime)
-            all_subjects.extend(subjects)
-        except Exception as e:
-            # If one screenshot fails, continue with the other
+            subs = await parse_one(contents, mime)
+            all_subjects.extend(subs)
+        except Exception:
             continue
 
     if not all_subjects:
         return {"error": "Could not read any subjects from the screenshots"}
 
-    # Merge & deduplicate
-    merged = merge_screenshots(all_subjects, [])
+    # Deduplicate by clean name
+    seen = {}
+    for item in all_subjects:
+        clean = clean_name(item["name"])
+        if clean not in seen:
+            item["_clean"] = clean
+            seen[clean]    = item
+    merged = list(seen.values())
 
     # Save to DB
-    db = get_db()
+    db            = get_db()
     user_subjects = db.table("subjects").select("*").eq("user_id", user_id).execute().data
-
-    updated = 0
-    created = 0
+    updated = created = 0
 
     for item in merged:
-        clean_name = item["_clean_name"]
-        attended   = int(item.get("attended", 0))
-        total      = int(item.get("total", 0))
-
+        clean_nm = item["_clean"]
+        attended = int(item.get("attended", 0))
+        total    = int(item.get("total", 0))
         if total == 0:
             continue
 
-        # Find matching existing subject (fuzzy: check if names overlap)
+        # Find or create subject
         matching = next(
             (s for s in user_subjects
-             if s["name"].lower() == clean_name.lower()
-             or clean_name.lower() in s["name"].lower()
-             or s["name"].lower() in clean_name.lower()),
+             if s["name"].lower() == clean_nm.lower()
+             or clean_nm.lower() in s["name"].lower()
+             or s["name"].lower() in clean_nm.lower()),
             None
         )
 
         if not matching:
-            # Create the subject first
             new_sub = db.table("subjects").insert({
                 "user_id": user_id,
-                "name": clean_name,
-                "color": "#00ff88"
+                "name":    clean_nm,
+                "color":   "#00ff88"
             }).execute()
             if new_sub.data:
                 matching = new_sub.data[0]
@@ -315,26 +374,27 @@ async def parse_screenshot(user_id: str, files: List[UploadFile] = File(...)):
 
         if matching:
             sub_id = matching["id"]
-            # Insert attendance records
-            # Attended classes → status: attended
+            # Clear old records for this subject to avoid duplicates
+            db.table("attendance_records").delete().eq("subject_id", sub_id).execute()
+
+            # Insert attended
             for i in range(attended):
                 db.table("attendance_records").insert({
                     "subject_id": sub_id,
-                    "date": f"2026-01-{(i % 28) + 1:02d}",
-                    "status": "attended"
+                    "date":       f"2026-01-{(i % 28) + 1:02d}",
+                    "status":     "attended"
                 }).execute()
-            # Bunked classes → status: bunked
-            bunked = total - attended
-            for i in range(bunked):
+            # Insert bunked
+            for i in range(total - attended):
                 db.table("attendance_records").insert({
                     "subject_id": sub_id,
-                    "date": f"2026-02-{(i % 28) + 1:02d}",
-                    "status": "bunked"
+                    "date":       f"2026-02-{(i % 28) + 1:02d}",
+                    "status":     "bunked"
                 }).execute()
             updated += 1
 
     return {
-        "message": f"Imported attendance for {updated} subjects ({created} new subjects created)",
+        "message": f"Imported attendance for {updated} subjects ({created} new)",
         "subjects_found": len(merged),
-        "subjects": [{"name": s["_clean_name"], "attended": s.get("attended"), "total": s.get("total")} for s in merged]
+        "subjects": [{"name": s["_clean"], "attended": s.get("attended"), "total": s.get("total")} for s in merged]
     }

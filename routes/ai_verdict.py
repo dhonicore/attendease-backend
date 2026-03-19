@@ -1,6 +1,7 @@
 import os
 import json
 import httpx
+import math
 from fastapi import APIRouter
 from database import get_db
 from datetime import date, timedelta
@@ -10,123 +11,83 @@ router = APIRouter()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
 
-# ── SECTION A TIMETABLE (CMRIT 2nd Sem) ──────────────────────────────────────
-# Monday=0, Tuesday=1, Wednesday=2, Thursday=3, Friday=4, Saturday=5
-# Each subject mapped to which days it appears
-# Based on the actual timetable PDF
-
-SECTION_A_TIMETABLE = {
-    "Applied Mathematics II":                  [0, 1, 2, 3, 5],   # Mon Tue Wed Thu Sat
-    "Applied Chemistry for Smart Systems":     [0, 1, 2, 3, 4],   # Mon Tue Wed Thu Fri
-    "Introduction to AI and Applications":     [1, 2, 3, 4],      # Tue Wed Thu Fri
-    "Introduction to Electrical Engineering":  [0, 2, 3, 4, 5],   # Mon Wed Thu Fri Sat
-    "Python Programming":                      [0, 1, 3, 4, 5],   # Mon Tue Thu Fri Sat
-    "Communication Skills":                    [0, 4],             # Mon Fri
-    "Indian Constitution and Engineering Ethics": [1, 2, 3],      # Tue Wed Thu
-    "TYL Aptitude":                            [1],                # Tue
-    "Interdisciplinary Project Based Learning":[2, 3, 4],          # Wed Thu Fri
-    # Labs appear once a week in rotation — treat as 1x per week
-    "Applied Chemistry Lab":                   [0],                # Mon (rotation)
-    "Python Programming Lab":                  [1],                # Tue (rotation)
-    "Applied Mathematics Lab":                 [2],                # Wed (rotation)
-}
-
-# Semester end date
-SEMESTER_END = date(2026, 5, 16)
-
-# Subjects that have Saturday classes
-SATURDAY_SUBJECTS = {
-    "Applied Mathematics II",
-    "Introduction to Electrical Engineering",
-    "Python Programming",
-}
+# Default semester end if not in DB
+DEFAULT_SEMESTER_END = date(2026, 5, 16)
 
 
-def get_subject_schedule(subject_name: str) -> list:
+def get_semester_end(db, user_id: str) -> date:
+    """Get semester end from semester_config table, fallback to default."""
+    try:
+        row = db.table("semester_config").select("semester_end").eq("user_id", user_id).execute()
+        if row.data and row.data[0].get("semester_end"):
+            return date.fromisoformat(row.data[0]["semester_end"])
+    except Exception:
+        pass
+    return DEFAULT_SEMESTER_END
+
+
+def get_user_schedule(db, user_id: str) -> dict:
     """
-    Fuzzy match subject name to timetable entry.
-    Returns list of weekday numbers (0=Mon, 5=Sat).
+    Read user's timetable from DB.
+    Returns {subject_id: [day_numbers]} e.g. {"uuid-123": [0, 2, 4]}
     """
-    name_lower = subject_name.lower()
-    for key, days in SECTION_A_TIMETABLE.items():
-        if (key.lower() in name_lower or
-            name_lower in key.lower() or
-            any(word in name_lower for word in key.lower().split() if len(word) > 4)):
-            return days
-    # Default: assume 3 classes per week if not found
-    return [0, 2, 4]
+    rows = db.table("timetable").select("subject_id, day_of_week").eq("user_id", user_id).execute()
+    schedule = {}
+    for row in (rows.data or []):
+        sid = row["subject_id"]
+        try:
+            day = int(row["day_of_week"])
+        except (ValueError, TypeError):
+            continue
+        if sid not in schedule:
+            schedule[sid] = []
+        if day not in schedule[sid]:
+            schedule[sid].append(day)
+    return schedule
 
 
-def count_working_days(from_date: date, to_date: date, holidays: set) -> dict:
+def count_remaining_days(from_date: date, to_date: date, holidays: set) -> dict:
     """
-    Count Mon-Sat working days from from_date to to_date (exclusive of today),
-    minus holidays.
-    Returns dict of {weekday: count} for days 0-5.
+    Count remaining working days (Mon-Sat) from tomorrow to semester end.
+    Returns {weekday_number: count}
     """
     counts = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
-    current = from_date + timedelta(days=1)  # Start from tomorrow
+    current = from_date + timedelta(days=1)
     while current <= to_date:
         wd = current.weekday()
-        if wd < 6 and current not in holidays:  # Mon-Sat only
+        if wd < 6 and current not in holidays:
             counts[wd] = counts.get(wd, 0) + 1
         current += timedelta(days=1)
     return counts
 
 
-def calculate_bunk_advice(
+def calculate_subject_advice(
+    subject_id: str,
     subject_name: str,
     attended: int,
     total: int,
     min_attendance: float,
+    schedule_days: list,
     remaining_by_day: dict,
     holidays: set,
     today: date
 ) -> dict:
-    """
-    For a subject, calculate:
-    - Current %
-    - Classes remaining this semester
-    - Safe bunks left (can miss N more and still be >= min_attendance)
-    - Classes needed to recover (if below min)
-    - Whether today is a class day and if it's safe to skip
-    """
-    schedule = get_subject_schedule(subject_name)
+    """Calculate bunk advice for a single subject."""
 
-    # Count remaining classes this semester
-    remaining_classes = sum(remaining_by_day.get(day, 0) for day in schedule)
-
-    total_by_end = total + remaining_classes
     current_pct = round((attended / total * 100), 1) if total > 0 else 0
-
-    # How many can we miss and still hit min_attendance at semester end?
-    # (attended + future_attended) / total_by_end >= min_attendance/100
-    # future_attended = total_by_end * (min_att/100) - attended
+    remaining_classes = sum(remaining_by_day.get(d, 0) for d in schedule_days)
+    total_by_end = total + remaining_classes
     min_att = min_attendance / 100
-    min_needed_total = int(min_att * total_by_end) + 1  # +1 to be safe
-    can_miss = max(0, (total + remaining_classes) - min_needed_total - (total - attended))
-    # Simpler: max bunks = attended - ceil(min_att * total_by_end)
-    import math
+
+    # Safe bunks left: how many more can miss and still hit min_attendance at semester end
     safe_bunks_left = max(0, attended - math.ceil(min_att * total_by_end))
 
-    # Classes needed to recover (if below min right now)
-    if current_pct < min_attendance:
-        # How many consecutive classes to hit min_attendance?
-        # (attended + x) / (total + x) >= min_att
-        # attended + x >= min_att * total + min_att * x
-        # x(1 - min_att) >= min_att * total - attended
-        needed = 0
-        if (1 - min_att) > 0:
-            needed = max(0, math.ceil((min_att * total - attended) / (1 - min_att)))
-    else:
-        needed = 0
-
-    # Is today a class day for this subject?
-    today_wd = today.weekday()
-    has_class_today = today_wd in schedule and today not in holidays and today_wd < 6
-
-    # Should skip today?
-    # Safe to skip if: has class today AND safe_bunks_left > 0 AND current_pct > min_attendance + 5
-    skip_safe = has_class_today and safe_bunks_left > 0 and current_pct > min_attendance + 5
+    # Classes needed to recover if below min right now
+    needed = 0
+    if current_pct < min_attendance and total > 0:
+        denom = 1 - min_att
+        if denom > 0:
+            needed = max(0, math.ceil((min_att * total - attended) / denom))
 
     # Status
     if current_pct >= min_attendance + 10:
@@ -136,21 +97,27 @@ def calculate_bunk_advice(
     else:
         status = "danger"
 
+    # Today's class check
+    today_wd = today.weekday()
+    has_class_today = today_wd in schedule_days and today not in holidays and today_wd < 6
+
+    # Safe to skip today?
+    skip_safe = has_class_today and safe_bunks_left > 0 and current_pct > min_attendance + 5
+
     return {
-        "name": subject_name,
-        "attended": attended,
-        "total": total,
-        "percentage": current_pct,
+        "name":              subject_name,
+        "subject_id":        subject_id,
+        "attended":          attended,
+        "total":             total,
+        "percentage":        current_pct,
         "remaining_classes": remaining_classes,
-        "safe_bunks_left": safe_bunks_left,
-        "needs_to_recover": needed,
-        "has_class_today": has_class_today,
-        "skip_safe_today": skip_safe,
-        "status": status,
+        "safe_bunks_left":   safe_bunks_left,
+        "needs_to_recover":  needed,
+        "has_class_today":   has_class_today,
+        "skip_safe_today":   skip_safe,
+        "status":            status,
     }
 
-
-# ── MAIN ENDPOINT ─────────────────────────────────────────────────────────────
 
 @router.get("/ai/verdict/{user_id}")
 async def get_verdict(user_id: str, min_attendance: int = 75):
@@ -161,88 +128,99 @@ async def get_verdict(user_id: str, min_attendance: int = 75):
     if not subjects:
         return {
             "overall_verdict": "Add your subjects first.",
-            "overall_score": 5,
-            "advice": "Go to the dashboard and add your subjects.",
-            "subject_advice": [],
-            "today_summary": "No subjects added yet."
+            "overall_score":   5,
+            "advice":          "Go through onboarding to set up your subjects.",
+            "subject_advice":  [],
+            "today_summary":   "No subjects added yet.",
+            "days_left":       0,
         }
 
-    # 2. Get holidays from DB
+    # 2. Get user's schedule from timetable table
+    schedule_by_subject = get_user_schedule(db, user_id)
+
+    # 3. Get holidays
     today = date.today()
     holiday_rows = db.table("holidays").select("date").eq("user_id", user_id).execute().data
     holidays = set()
-    for h in holiday_rows:
+    for h in (holiday_rows or []):
         try:
             holidays.add(date.fromisoformat(h["date"]))
         except Exception:
             pass
 
-    # 3. Count remaining working days by weekday
-    remaining_by_day = count_working_days(today, SEMESTER_END, holidays)
+    # 4. Get semester end
+    semester_end = get_semester_end(db, user_id)
+
+    # 5. Count remaining working days by weekday
+    remaining_by_day = count_remaining_days(today, semester_end, holidays)
     days_left = sum(remaining_by_day.values())
 
-    # 4. Calculate advice for each subject
+    # 6. Calculate advice per subject
     subject_advice = []
-    total_attended = 0
-    total_classes = 0
+    total_attended = total_classes = 0
 
     for subject in subjects:
-        records = db.table("attendance_records").select("*").eq("subject_id", subject["id"]).execute().data
+        records  = db.table("attendance_records").select("status").eq("subject_id", subject["id"]).execute().data
         attended = len([r for r in records if r["status"] == "attended"])
         total    = len([r for r in records if r["status"] != "cancelled"])
-
         total_attended += attended
         total_classes  += total
 
+        # Get this subject's schedule days
+        schedule_days = schedule_by_subject.get(subject["id"], [])
+
         if total == 0:
             subject_advice.append({
-                "name": subject["name"],
-                "attended": 0,
-                "total": 0,
-                "percentage": 0,
-                "remaining_classes": 0,
-                "safe_bunks_left": 0,
-                "needs_to_recover": 0,
-                "has_class_today": False,
-                "skip_safe_today": False,
-                "status": "borderline",
-                "advice_text": "No attendance recorded yet."
+                "name":              subject["name"],
+                "subject_id":        subject["id"],
+                "attended":          0,
+                "total":             0,
+                "percentage":        0,
+                "remaining_classes": sum(remaining_by_day.get(d, 0) for d in schedule_days),
+                "safe_bunks_left":   0,
+                "needs_to_recover":  0,
+                "has_class_today":   today.weekday() in schedule_days and today not in holidays,
+                "skip_safe_today":   False,
+                "status":            "borderline",
             })
             continue
 
-        advice = calculate_bunk_advice(
-            subject_name    = subject["name"],
-            attended        = attended,
-            total           = total,
-            min_attendance  = min_attendance,
-            remaining_by_day= remaining_by_day,
-            holidays        = holidays,
-            today           = today
+        advice = calculate_subject_advice(
+            subject_id       = subject["id"],
+            subject_name     = subject["name"],
+            attended         = attended,
+            total            = total,
+            min_attendance   = min_attendance,
+            schedule_days    = schedule_days,
+            remaining_by_day = remaining_by_day,
+            holidays         = holidays,
+            today            = today,
         )
         subject_advice.append(advice)
 
-    # 5. Overall stats
-    overall_pct = round((total_attended / total_classes * 100), 1) if total_classes > 0 else 0
-    danger_subjects  = [s for s in subject_advice if s["status"] == "danger"]
-    safe_subjects    = [s for s in subject_advice if s["status"] == "safe"]
-    today_classes    = [s for s in subject_advice if s.get("has_class_today")]
-    skippable_today  = [s for s in subject_advice if s.get("skip_safe_today")]
-    must_attend_today= [s for s in today_classes if not s.get("skip_safe_today")]
+    # 7. Overall stats
+    overall_pct    = round((total_attended / total_classes * 100), 1) if total_classes > 0 else 0
+    danger_subjects= [s for s in subject_advice if s["status"] == "danger"]
+    today_classes  = [s for s in subject_advice if s.get("has_class_today")]
+    skippable      = [s for s in today_classes if s.get("skip_safe_today")]
+    must_attend    = [s for s in today_classes if not s.get("skip_safe_today")]
 
-    # 6. Build today summary (pure math, no AI)
-    today_name = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"][today.weekday()]
-    if not today_classes:
-        today_summary = f"No classes today ({today_name}). Enjoy the day."
+    # 8. Today summary (pure math — never fails)
+    day_name = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"][today.weekday()]
+    if today in holidays:
+        today_summary = f"Today is a holiday ({day_name}). No classes!"
+    elif not today_classes:
+        today_summary = f"No classes on {day_name}. Enjoy the day!"
     else:
         class_names = ", ".join(s["name"].split()[0] for s in today_classes)
-        if skippable_today:
-            skip_names = ", ".join(s["name"].split()[0] for s in skippable_today)
-            must_names = ", ".join(s["name"].split()[0] for s in must_attend_today) if must_attend_today else "none"
-            today_summary = f"{today_name}: {len(today_classes)} classes ({class_names}). Can skip: {skip_names}. Must attend: {must_names}."
+        if skippable:
+            skip_names = ", ".join(s["name"].split()[0] for s in skippable)
+            must_names = ", ".join(s["name"].split()[0] for s in must_attend) if must_attend else "none"
+            today_summary = f"{day_name}: {len(today_classes)} classes ({class_names}). Safe to skip: {skip_names}. Must attend: {must_names}."
         else:
-            today_summary = f"{today_name}: {len(today_classes)} classes. Attend all — {class_names}."
+            today_summary = f"{day_name}: {len(today_classes)} classes. Attend all — {class_names}."
 
-    # 7. Score (pure math)
+    # 9. Score (pure math)
     if overall_pct >= 85:
         score = 9
     elif overall_pct >= 80:
@@ -254,34 +232,30 @@ async def get_verdict(user_id: str, min_attendance: int = 75):
     else:
         score = 2
 
-    # 8. Try Gemini for punchy verdict text (optional — math works without it)
-    overall_verdict = ""
-    advice_text     = ""
-
+    # 10. Gemini for punchy verdict text (optional)
+    overall_verdict = advice_text = ""
     try:
         subjects_summary = "\n".join([
-            f"- {s['name']}: {s['percentage']}% | bunks left: {s['safe_bunks_left']} | classes left: {s['remaining_classes']} | status: {s['status']}"
+            f"- {s['name']}: {s['percentage']}% | bunks left: {s['safe_bunks_left']} | status: {s['status']}"
             for s in subject_advice
         ])
 
-        prompt = f"""You are a brutally honest, Gen-Z attendance advisor for Indian college students at CMRIT Bangalore.
+        prompt = f"""You are a brutally honest Gen-Z attendance advisor for Indian college students.
 
-Today: {today_name}, {today.strftime('%d %b %Y')}
-Overall attendance: {overall_pct}%
-Semester ends: 16 May 2026 ({days_left} working days left)
+Today: {day_name}, {today.strftime('%d %b %Y')}
+Overall: {overall_pct}%
+Semester ends: {semester_end.strftime('%d %b %Y')} ({days_left} working days left)
 Min required: {min_attendance}%
 
 Subjects:
 {subjects_summary}
 
-Today's situation: {today_summary}
+Today: {today_summary}
 
-Write TWO short things in casual Indian college student tone (not cringe, just real):
-1. overall_verdict: One punchy sentence about their overall situation (max 12 words)
-2. advice: One specific actionable sentence for today (max 15 words)
+Write in casual Indian college student tone — real, direct, not cringe.
 
 Reply ONLY valid JSON, no markdown:
-{{"overall_verdict": "...", "advice": "..."}}"""
+{{"overall_verdict": "one punchy sentence max 12 words", "advice": "one specific actionable sentence for today max 15 words"}}"""
 
         async with httpx.AsyncClient() as client:
             res = await client.post(
@@ -292,31 +266,67 @@ Reply ONLY valid JSON, no markdown:
                 },
                 timeout=20
             )
-            data = res.json()
-            text = data["candidates"][0]["content"]["parts"][0]["text"]
-            text = text.replace("```json", "").replace("```", "").strip()
+            d    = res.json()
+            text = d["candidates"][0]["content"]["parts"][0]["text"]
+            text = text.replace("```json","").replace("```","").strip()
             parsed = json.loads(text)
             overall_verdict = parsed.get("overall_verdict", "")
             advice_text     = parsed.get("advice", "")
 
     except Exception:
-        # Gemini failed — use math-based fallback, user still gets full data
-        if len(danger_subjects) == 0:
-            overall_verdict = f"Looking solid at {overall_pct}% — keep it up."
-        elif len(danger_subjects) <= 2:
-            names = ", ".join(s["name"].split()[0] for s in danger_subjects)
-            overall_verdict = f"{names} is cooked. Fix it before May 16."
+        # Math-based fallback
+        if not danger_subjects:
+            overall_verdict = f"Solid at {overall_pct}% — keep it up."
+        elif len(danger_subjects) == 1:
+            overall_verdict = f"{danger_subjects[0]['name'].split()[0]} is cooked. Fix it."
         else:
-            overall_verdict = f"{len(danger_subjects)} subjects in danger — time to start attending."
-
+            overall_verdict = f"{len(danger_subjects)} subjects in danger. Start attending."
         advice_text = today_summary
 
     return {
-        "overall_verdict":  overall_verdict,
-        "overall_score":    score,
-        "advice":           advice_text,
-        "today_summary":    today_summary,
-        "days_left":        days_left,
-        "overall_pct":      overall_pct,
-        "subject_advice":   subject_advice,
+        "overall_verdict": overall_verdict,
+        "overall_score":   score,
+        "advice":          advice_text,
+        "today_summary":   today_summary,
+        "days_left":       days_left,
+        "overall_pct":     overall_pct,
+        "semester_end":    semester_end.strftime("%d %b %Y"),
+        "subject_advice":  subject_advice,
+    }
+
+
+@router.get("/ai/holidays/{user_id}")
+async def get_holidays(user_id: str):
+    """Return holidays grouped by upcoming week, month, and rest of semester."""
+    db    = get_db()
+    today = date.today()
+
+    rows = db.table("holidays").select("date,name").eq("user_id", user_id).execute().data
+    if not rows:
+        return {"this_week": [], "this_month": [], "rest_of_semester": [], "total": 0}
+
+    holidays = []
+    for h in rows:
+        try:
+            d = date.fromisoformat(h["date"])
+            if d >= today:
+                holidays.append({"date": h["date"], "name": h["name"], "day": d.strftime("%A")})
+        except Exception:
+            pass
+
+    holidays.sort(key=lambda x: x["date"])
+
+    week_end  = today + timedelta(days=7)
+    month_end = today.replace(day=1) + timedelta(days=32)
+    month_end = month_end.replace(day=1) - timedelta(days=1)
+
+    this_week  = [h for h in holidays if date.fromisoformat(h["date"]) <= week_end]
+    this_month = [h for h in holidays if date.fromisoformat(h["date"]) <= month_end]
+    rest       = holidays
+
+    return {
+        "this_week":          this_week,
+        "this_month":         this_month,
+        "rest_of_semester":   rest,
+        "total":              len(rest)
     }
