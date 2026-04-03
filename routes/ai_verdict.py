@@ -11,12 +11,10 @@ router = APIRouter()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
 
-# Default semester end if not in DB
 DEFAULT_SEMESTER_END = date(2026, 5, 16)
 
 
 def get_semester_end(db, user_id: str) -> date:
-    """Get semester end from semester_config table, fallback to default."""
     try:
         row = db.table("semester_config").select("semester_end").eq("user_id", user_id).execute()
         if row.data and row.data[0].get("semester_end"):
@@ -27,10 +25,6 @@ def get_semester_end(db, user_id: str) -> date:
 
 
 def get_user_schedule(db, user_id: str) -> dict:
-    """
-    Read user's timetable from DB.
-    Returns {subject_id: [day_numbers]} e.g. {"uuid-123": [0, 2, 4]}
-    """
     rows = db.table("timetable").select("subject_id, day_of_week").eq("user_id", user_id).execute()
     schedule = {}
     for row in (rows.data or []):
@@ -47,10 +41,6 @@ def get_user_schedule(db, user_id: str) -> dict:
 
 
 def count_remaining_days(from_date: date, to_date: date, holidays: set) -> dict:
-    """
-    Count remaining working days (Mon-Sat) from tomorrow to semester end.
-    Returns {weekday_number: count}
-    """
     counts = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
     current = from_date + timedelta(days=1)
     while current <= to_date:
@@ -62,34 +52,33 @@ def count_remaining_days(from_date: date, to_date: date, holidays: set) -> dict:
 
 
 def calculate_subject_advice(
-    subject_id: str,
-    subject_name: str,
-    attended: int,
-    total: int,
-    min_attendance: float,
-    schedule_days: list,
-    remaining_by_day: dict,
-    holidays: set,
-    today: date
+    subject_id, subject_name, attended, total,
+    min_attendance, schedule_days, remaining_by_day, holidays, today
 ) -> dict:
-    """Calculate bunk advice for a single subject."""
-
     current_pct = round((attended / total * 100), 1) if total > 0 else 0
     remaining_classes = sum(remaining_by_day.get(d, 0) for d in schedule_days)
     total_by_end = total + remaining_classes
     min_att = min_attendance / 100
 
-    # Safe bunks left: how many more can miss and still hit min_attendance at semester end
-    safe_bunks_left = max(0, attended - math.ceil(min_att * total_by_end))
+    # FIX: correct safe bunks formula
+    safe_bunks_left = max(0, math.floor((attended - min_att * total_by_end) / 1))
+    # More precise: how many can I miss from remaining and still hit min_att at semester end
+    # attended must be >= min_att * (total + remaining - bunks_taken)
+    # => bunks_taken <= attended/min_att - total - remaining + bunks_taken ... solve properly:
+    # max_total_misses = total_by_end - ceil(attended / min_att) but cap at remaining
+    if min_att > 0:
+        max_absences_allowed = math.floor(attended / min_att * (1 - min_att))
+        absences_so_far = total - attended
+        safe_bunks_left = max(0, max_absences_allowed - absences_so_far)
+    else:
+        safe_bunks_left = remaining_classes
 
-    # Classes needed to recover if below min right now
     needed = 0
     if current_pct < min_attendance and total > 0:
         denom = 1 - min_att
         if denom > 0:
             needed = max(0, math.ceil((min_att * total - attended) / denom))
 
-    # Status
     if current_pct >= min_attendance + 10:
         status = "safe"
     elif current_pct >= min_attendance:
@@ -97,11 +86,8 @@ def calculate_subject_advice(
     else:
         status = "danger"
 
-    # Today's class check
     today_wd = today.weekday()
     has_class_today = today_wd in schedule_days and today not in holidays and today_wd < 6
-
-    # Safe to skip today?
     skip_safe = has_class_today and safe_bunks_left > 0 and current_pct > min_attendance + 5
 
     return {
@@ -123,7 +109,6 @@ def calculate_subject_advice(
 async def get_verdict(user_id: str, min_attendance: int = 75):
     db = get_db()
 
-    # 1. Get subjects
     subjects = db.table("subjects").select("*").eq("user_id", user_id).execute().data
     if not subjects:
         return {
@@ -135,10 +120,16 @@ async def get_verdict(user_id: str, min_attendance: int = 75):
             "days_left":       0,
         }
 
-    # 2. Get user's schedule from timetable table
+    # Get user's min_attendance from profile
+    try:
+        user_row = db.table("users").select("min_attendance").eq("id", user_id).execute()
+        if user_row.data and user_row.data[0].get("min_attendance"):
+            min_attendance = int(user_row.data[0]["min_attendance"])
+    except Exception:
+        pass
+
     schedule_by_subject = get_user_schedule(db, user_id)
 
-    # 3. Get holidays
     today = date.today()
     holiday_rows = db.table("holidays").select("date").eq("user_id", user_id).execute().data
     holidays = set()
@@ -148,14 +139,10 @@ async def get_verdict(user_id: str, min_attendance: int = 75):
         except Exception:
             pass
 
-    # 4. Get semester end
     semester_end = get_semester_end(db, user_id)
-
-    # 5. Count remaining working days by weekday
     remaining_by_day = count_remaining_days(today, semester_end, holidays)
     days_left = sum(remaining_by_day.values())
 
-    # 6. Calculate advice per subject
     subject_advice = []
     total_attended = total_classes = 0
 
@@ -166,7 +153,6 @@ async def get_verdict(user_id: str, min_attendance: int = 75):
         total_attended += attended
         total_classes  += total
 
-        # Get this subject's schedule days
         schedule_days = schedule_by_subject.get(subject["id"], [])
 
         if total == 0:
@@ -198,14 +184,12 @@ async def get_verdict(user_id: str, min_attendance: int = 75):
         )
         subject_advice.append(advice)
 
-    # 7. Overall stats
-    overall_pct    = round((total_attended / total_classes * 100), 1) if total_classes > 0 else 0
-    danger_subjects= [s for s in subject_advice if s["status"] == "danger"]
-    today_classes  = [s for s in subject_advice if s.get("has_class_today")]
-    skippable      = [s for s in today_classes if s.get("skip_safe_today")]
-    must_attend    = [s for s in today_classes if not s.get("skip_safe_today")]
+    overall_pct     = round((total_attended / total_classes * 100), 1) if total_classes > 0 else 0
+    danger_subjects = [s for s in subject_advice if s["status"] == "danger"]
+    today_classes   = [s for s in subject_advice if s.get("has_class_today")]
+    skippable       = [s for s in today_classes if s.get("skip_safe_today")]
+    must_attend     = [s for s in today_classes if not s.get("skip_safe_today")]
 
-    # 8. Today summary (pure math — never fails)
     day_name = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"][today.weekday()]
     if today in holidays:
         today_summary = f"Today is a holiday ({day_name}). No classes!"
@@ -220,7 +204,6 @@ async def get_verdict(user_id: str, min_attendance: int = 75):
         else:
             today_summary = f"{day_name}: {len(today_classes)} classes. Attend all — {class_names}."
 
-    # 9. Score (pure math)
     if overall_pct >= 85:
         score = 9
     elif overall_pct >= 80:
@@ -232,14 +215,15 @@ async def get_verdict(user_id: str, min_attendance: int = 75):
     else:
         score = 2
 
-    # 10. Gemini for punchy verdict text (optional)
-    overall_verdict = advice_text = ""
+    overall_verdict = ""
+    advice_text = ""
     try:
         subjects_summary = "\n".join([
             f"- {s['name']}: {s['percentage']}% | bunks left: {s['safe_bunks_left']} | status: {s['status']}"
             for s in subject_advice
         ])
 
+        # FIX: strict JSON-only prompt, short limits so it never gets cut off
         prompt = f"""You are a brutally honest Gen-Z attendance advisor for Indian college students.
 
 Today: {day_name}, {today.strftime('%d %b %Y')}
@@ -252,29 +236,41 @@ Subjects:
 
 Today: {today_summary}
 
-Write in casual Indian college student tone — real, direct, not cringe.
-
-Reply ONLY valid JSON, no markdown:
-{{"overall_verdict": "one punchy sentence max 12 words", "advice": "one specific actionable sentence for today max 15 words"}}"""
+Rules:
+- overall_verdict: max 10 words, casual Indian college tone, no cringe
+- advice: max 12 words, specific to today's situation
+- Reply ONLY with this exact JSON, nothing before or after it:
+{{"overall_verdict": "...", "advice": "..."}}"""
 
         async with httpx.AsyncClient() as client:
             res = await client.post(
                 GEMINI_URL,
                 json={
                     "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {"temperature": 0.8, "maxOutputTokens": 200}
+                    # FIX: was 200 — too low, caused cutoff. 300 is safe for short JSON
+                    "generationConfig": {
+                        "temperature": 0.7,
+                        "maxOutputTokens": 300,
+                        "stopSequences": ["}}\n", "}}\r"]
+                    }
                 },
-                timeout=20
+                timeout=25
             )
             d    = res.json()
             text = d["candidates"][0]["content"]["parts"][0]["text"]
-            text = text.replace("```json","").replace("```","").strip()
+            text = text.replace("```json", "").replace("```", "").strip()
+
+            # FIX: if response got cut mid-JSON, patch it
+            if text.count('"') % 2 != 0 or not text.endswith("}"):
+                text = text.rsplit(",", 1)[0] + "}"
+                if not text.startswith("{"):
+                    raise ValueError("Unparseable JSON from Gemini")
+
             parsed = json.loads(text)
-            overall_verdict = parsed.get("overall_verdict", "")
-            advice_text     = parsed.get("advice", "")
+            overall_verdict = parsed.get("overall_verdict", "").strip()
+            advice_text     = parsed.get("advice", "").strip()
 
     except Exception:
-        # Math-based fallback
         if not danger_subjects:
             overall_verdict = f"Solid at {overall_pct}% — keep it up."
         elif len(danger_subjects) == 1:
@@ -297,7 +293,6 @@ Reply ONLY valid JSON, no markdown:
 
 @router.get("/ai/holidays/{user_id}")
 async def get_holidays(user_id: str):
-    """Return holidays grouped by upcoming week, month, and rest of semester."""
     db    = get_db()
     today = date.today()
 
@@ -325,8 +320,8 @@ async def get_holidays(user_id: str):
     rest       = holidays
 
     return {
-        "this_week":          this_week,
-        "this_month":         this_month,
-        "rest_of_semester":   rest,
-        "total":              len(rest)
+        "this_week":        this_week,
+        "this_month":       this_month,
+        "rest_of_semester": rest,
+        "total":            len(rest)
     }
