@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoBunk — Setup</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --surface2: #1c1c1c;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text: #f0f0f0;
+  --muted: #555;
+  --muted2: #888;
+  --green: #b8ff57;
+  --green-dim: rgba(184,255,87,0.1);
+  --green-border: rgba(184,255,87,0.25);
+  --red: #ff5757;
+  --yellow: #ffd557;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;-webkit-font-smoothing:antialiased;}
+
+.shell{max-width:420px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding:0 20px;}
+
+/* TOP BAR */
+.topbar{padding:20px 0 16px;display:flex;align-items:center;justify-content:space-between;}
+.logo{font-size:13px;font-weight:700;letter-spacing:0.15em;color:var(--green);}
+.step-info{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em;}
+
+/* PROGRESS */
+.prog-track{height:1px;background:var(--border2);margin-bottom:32px;position:relative;overflow:hidden;}
+.prog-fill{height:100%;background:var(--green);transition:width 0.5s cubic-bezier(0.4,0,0.2,1);}
+
+/* SCREENS */
+.screen{display:none;flex:1;flex-direction:column;animation:fadeUp 0.35s ease both;}
+.screen.active{display:flex;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+.screen-body{flex:1;}
+.tag{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--green);margin-bottom:12px;}
+.title{font-size:clamp(26px,7vw,34px);font-weight:800;line-height:1.05;letter-spacing:-0.02em;margin-bottom:10px;}
+.subtitle{font-size:14px;color:var(--muted2);line-height:1.6;margin-bottom:28px;}
+
+/* FIELDS */
+.field{margin-bottom:14px;}
+.field label{display:block;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:7px;}
+.field select,.field input[type="number"]{
+  width:100%;background:var(--surface);border:1px solid var(--border2);
+  border-radius:10px;padding:13px 16px;
+  font-family:'Syne',sans-serif;font-size:15px;font-weight:500;
+  color:var(--text);outline:none;-webkit-appearance:none;
+  transition:border-color 0.2s;
+}
+.field select:focus,.field input:focus{border-color:var(--green);}
+.field select option{background:#1c1c1c;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+/* SUBJECT CHIPS */
+.subjects-preview{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;display:none;}
+.subjects-preview-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+.subjects-preview-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);}
+.subjects-preview-count{font-family:'DM Mono',monospace;font-size:11px;color:var(--green);}
+.chips{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{background:var(--green-dim);border:1px solid var(--green-border);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;color:var(--green);}
+
+/* ATTENDANCE CARDS */
+.att-intro{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:20px;}
+.att-intro p{font-size:13px;color:var(--muted2);line-height:1.6;}
+.att-intro strong{color:var(--text);}
+
+.att-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:10px;position:relative;overflow:hidden;transition:border-color 0.2s;}
+.att-card.has-data{border-color:var(--border2);}
+.att-accent{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--border2);transition:background 0.3s;}
+.att-card.safe .att-accent{background:var(--green);}
+.att-card.warn .att-accent{background:var(--yellow);}
+.att-card.danger .att-accent{background:var(--red);}
+
+.att-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-left:10px;}
+.att-name{font-size:14px;font-weight:700;flex:1;padding-right:12px;line-height:1.3;}
+.att-pct{font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:var(--muted);transition:color 0.2s;}
+.att-pct.safe{color:var(--green);}
+.att-pct.warn{color:var(--yellow);}
+.att-pct.danger{color:var(--red);}
+
+.att-inputs{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-left:10px;}
+.att-input-wrap label{display:block;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+.att-input-wrap input{
+  width:100%;background:rgba(255,255,255,0.04);border:1.5px solid var(--border2);
+  border-radius:8px;padding:10px;
+  font-family:'DM Mono',monospace;font-size:20px;font-weight:500;
+  color:var(--text);text-align:center;outline:none;
+  transition:border-color 0.2s;-webkit-appearance:none;
+}
+.att-input-wrap input:focus{border-color:var(--green);}
+.att-status{margin-top:8px;padding-left:10px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);min-height:16px;}
+.att-status.safe{color:var(--green);}
+.att-status.warn{color:var(--yellow);}
+.att-status.danger{color:var(--red);}
+
+/* PROGRESS BAR (step 2) */
+.fill-progress{display:flex;align-items:center;gap:10px;margin-bottom:20px;}
+.fill-bar-wrap{flex:1;height:3px;background:var(--border2);border-radius:2px;overflow:hidden;}
+.fill-bar{height:100%;background:var(--green);border-radius:2px;transition:width 0.3s ease;}
+.fill-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--green);white-space:nowrap;}
+
+/* BUTTONS */
+.btn-row{padding:16px 0 32px;}
+.btn-primary{
+  width:100%;background:var(--green);color:#0a0a0a;border:none;
+  border-radius:12px;padding:16px;
+  font-family:'Syne',sans-serif;font-size:15px;font-weight:700;
+  letter-spacing:0.03em;cursor:pointer;transition:all 0.2s;
+}
+.btn-primary:hover{opacity:0.88;transform:translateY(-1px);}
+.btn-primary:disabled{opacity:0.35;cursor:not-allowed;transform:none;}
+.btn-secondary{
+  width:100%;background:transparent;color:var(--muted);border:none;
+  padding:12px;font-family:'Syne',sans-serif;font-size:13px;
+  cursor:pointer;transition:color 0.15s;margin-top:6px;
+}
+.btn-secondary:hover{color:var(--text);}
+
+/* SUMMARY */
+.summary-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:20px;}
+.summary-row{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border);}
+.summary-row:last-child{border-bottom:none;}
+.summary-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em;}
+.summary-val{font-size:13px;font-weight:700;}
+
+/* DONE SCREEN */
+.done-icon{font-size:48px;margin-bottom:16px;}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}
+.stat-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;}
+.stat-box-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.stat-box-val{font-family:'DM Mono',monospace;font-size:24px;font-weight:500;}
+.stat-box-val.green{color:var(--green);}
+.stat-box-val.red{color:var(--red);}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <div class="logo">NOBUNK</div>
+    <div class="step-info" id="step-info">1 / 3</div>
+  </div>
+  <div class="prog-track">
+    <div class="prog-fill" id="prog-fill" style="width:33%"></div>
+  </div>
+
+  <!-- STEP 1: PROFILE -->
+  <div class="screen active" id="s1">
+    <div class="screen-body">
+      <div class="tag">Setup</div>
+      <div class="title">Who are you?</div>
+      <div class="subtitle">We'll auto-load your timetable based on your section and batch. No uploads needed.</div>
+
+      <div class="field">
+        <label>College</label>
+        <select id="college" onchange="onCollegeChange()">
+          <option value="">Select college</option>
+          <option value="CMRIT">CMRIT Bengaluru</option>
+        </select>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Year</label>
+          <select id="year" onchange="onYearChange()">
+            <option value="">Year</option>
+            <option value="1">1st Year</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Semester</label>
+          <select id="semester" onchange="onSemChange()">
+            <option value="">Sem</option>
+            <option value="2">Sem 2</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" id="cycle-wrap" style="display:none">
+        <label>Cycle</label>
+        <select id="cycle" onchange="onCycleChange()">
+          <option value="">Select cycle</option>
+          <option value="CHEM">Chemistry Cycle — ISE / AIML / AIDS (Sections A–H)</option>
+          <option value="PHY_CSE">Physics Cycle CSE — (Sections I–L)</option>
+          <option value="PHY_ECE">Physics Cycle ECE — (Sections M–P)</option>
+        </select>
+      </div>
+      <div class="row2" id="sec-batch-wrap" style="display:none">
+        <div class="field">
+          <label>Section</label>
+          <select id="section" onchange="onSectionChange()">
+            <option value="">Section</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Batch</label>
+          <select id="batch" onchange="onBatchChange()">
+            <option value="">Batch</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Min Attendance Required (%)</label>
+        <input type="number" id="min-att" value="75" min="1" max="100">
+      </div>
+
+      <div class="subjects-preview" id="subjects-preview">
+        <div class="subjects-preview-header">
+          <span class="subjects-preview-label">Your subjects</span>
+          <span class="subjects-preview-count" id="subjects-count"></span>
+        </div>
+        <div class="chips" id="subjects-chips"></div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="saveProfile()">Continue →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: ATTENDANCE ENTRY -->
+  <div class="screen" id="s2">
+    <div class="screen-body">
+      <div class="tag">Current Numbers</div>
+      <div class="title">How many have you attended?</div>
+      <div class="att-intro">
+        <p>Open your <strong>CMRIT portal → Attendance</strong> and enter the numbers for each subject. Skip any you don't want to track yet.</p>
+      </div>
+      <div class="fill-progress">
+        <div class="fill-bar-wrap"><div class="fill-bar" id="fill-bar" style="width:0%"></div></div>
+        <div class="fill-label" id="fill-label">0 / 0</div>
+      </div>
+      <div id="att-cards"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" id="save-att-btn" onclick="saveAttendance()">Save & Finish →</button>
+      <button class="btn-secondary" onclick="skipAttendance()">Skip — I'll track from today</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: DONE -->
+  <div class="screen" id="s3">
+    <div class="screen-body">
+      <div class="tag">Ready</div>
+      <div class="done-icon">🎯</div>
+      <div class="title">You're all set.</div>
+      <div class="subtitle">NoBunk knows your timetable. Open the dashboard to see today's classes and your attendance status.</div>
+      <div class="stat-grid" id="done-stats"></div>
+      <div class="summary-card" id="done-summary"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="goToDashboard()">Open Dashboard →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://attendease-backend-wrag.onrender.com';
+let currentUser = null;
+let currentSubjects = []; // [{code, name}]
+let dbSubjects = [];
+let currentStep = 1;
+
+// ── TIMETABLE DATABASE ─────────────────────────────────────────────
+const TIMETABLE_DB = {
+  CMRIT: {
+    1: {
+      2: {
+        CHEM: {
+          subjects: [
+            {code:"MATHS",    name:"Applied Mathematics II"},
+            {code:"MATHS_LAB",name:"Applied Mathematics Lab"},
+            {code:"CHEM",     name:"Applied Chemistry for Smart Systems"},
+            {code:"CHEM_LAB", name:"Applied Chemistry Lab"},
+            {code:"AI",       name:"Introduction to AI and Applications"},
+            {code:"ELE",      name:"Introduction to Electrical Engineering"},
+            {code:"PYTHON",   name:"Python Programming"},
+            {code:"PYTHON_LAB",name:"Python Programming Lab"},
+            {code:"ENG",      name:"Communication Skills"},
+            {code:"ICO",      name:"Indian Constitution & Engineering Ethics"},
+            {code:"TYL",      name:"Aptitude"},
+            {code:"IDP",      name:"Interdisciplinary Project-Based Learning"},
+          ],
+          sections: ["A","B","C","D","E","F","G","H"],
+          // schedule[section][batch] = {monday:[subjects], tuesday:[...], ...}
+          schedule: {
+            A: {
+              A1: {
+                monday:    ["CHEM_LAB","ELE","CHEM","PYTHON","ENG"],
+                tuesday:   ["MATHS_LAB","PYTHON","MATHS","AI","TYL"],
+                wednesday: ["MATHS","CHEM","PYTHON_LAB","AI","PYTHON"],
+                thursday:  ["AI","ELE","MATHS","CHEM","PYTHON"],
+                friday:    ["PYTHON","ENG","CHEM","AI","ELE"],
+                saturday:  ["ELE","MATHS","IDP","TYL"],
+              },
+              A2: {
+                monday:    ["CHEM_LAB","ELE","CHEM","PYTHON","ENG"],
+                tuesday:   ["MATHS_LAB","PYTHON","MATHS","AI","TYL"],
+                wednesday: ["MATHS","CHEM","PYTHON_LAB","AI","PYTHON"],
+                thursday:  ["AI","ELE","MATHS","CHEM","PYTHON"],
+                friday:    ["PYTHON","ENG","CHEM","AI","ELE"],
+                saturday:  ["ELE","MATHS","IDP","TYL"],
+              },
+              A3: {
+                monday:    ["PYTHON_LAB","ELE","CHEM","PYTHON","ENG"],
+                tuesday:   ["MATHS_LAB","PYTHON","MATHS","AI","TYL"],
+                wednesday: ["MATHS","CHEM","CHEM_LAB","AI","PYTHON"],
+                thursday:  ["AI","ELE","MATHS","CHEM","PYTHON"],
+                friday:    ["PYTHON","ENG","CHEM","AI","ELE"],
+                saturday:  ["ELE","MATHS","IDP","TYL"],
+              },
+            },
+            B: {
+              B1: {
+                monday:    ["MATHS","CHEM","PYTHON_LAB","PYTHON","ICE"],
+                tuesday:   ["CHEM","AI","MATHS_LAB","MATHS","PYTHON"],
+                wednesday: ["AI","ELE","MATHS","ENG","PYTHON"],
+                thursday:  ["CHEM_LAB","ENG","CHEM","ELE"],
+                friday:    ["ELE","MATHS","CHEM","AI","PYTHON","TYL"],
+                saturday:  ["AI","ELE","IDP"],
+              },
+              B2: {
+                monday:    ["MATHS","CHEM","PYTHON_LAB","PYTHON","ICE"],
+                tuesday:   ["CHEM","AI","MATHS_LAB","MATHS","PYTHON"],
+                wednesday: ["AI","ELE","MATHS","ENG","PYTHON"],
+                thursday:  ["CHEM_LAB","ENG","CHEM","ELE"],
+                friday:    ["ELE","MATHS","CHEM","AI","PYTHON","TYL"],
+                saturday:  ["AI","ELE","IDP"],
+              },
+              B3: {
+                monday:    ["MATHS","CHEM","CHEM_LAB","PYTHON","ICE"],
+                tuesday:   ["CHEM","AI","MATHS_LAB","MATHS","PYTHON"],
+                wednesday: ["AI","ELE","MATHS","ENG","PYTHON"],
+                thursday:  ["PYTHON_LAB","ENG","CHEM","ELE"],
+                friday:    ["ELE","MATHS","CHEM","AI","PYTHON","TYL"],
+                saturday:  ["AI","ELE","IDP"],
+              },
+            },
+          }
+        },
+        PHY_CSE: {
+          subjects: [
+            {code:"MATHS",    name:"Applied Mathematics II"},
+            {code:"MATHS_LAB",name:"Mathematics Lab"},
+            {code:"PHY",      name:"Physics - Quantum Physics and Applications"},
+            {code:"PHY_LAB",  name:"Physics Lab"},
+            {code:"CAED",     name:"Computer Aided Drawing"},
+            {code:"CAED_LAB", name:"CAED Lab"},
+            {code:"IEC",      name:"Introduction to Electronics and Communication Engg"},
+            {code:"CPL",      name:"C Programming Lab"},
+            {code:"CPROG",    name:"Programming in C"},
+            {code:"SOFT",     name:"Soft Skills"},
+            {code:"KSK",      name:"Samskrutika Kannada"},
+            {code:"IDP",      name:"Interdisciplinary Project-Based Learning"},
+          ],
+          sections: ["I","J","K","L"],
+          schedule: {
+            I: {
+              I1: {
+                monday:    ["PHY_LAB","IEC","PHY","CPROG"],
+                tuesday:   ["PHY","MATHS","KSK","CPROG","IEC"],
+                wednesday: ["CPROG","IEC","SOFT","PHY","KSK"],
+                thursday:  ["CAED","IEC","CPL","MATHS"],
+                friday:    ["CAED_LAB","CAED","MATHS","PHY"],
+                saturday:  ["MATHS","CPROG","IDP"],
+              },
+              I2: {
+                monday:    ["CPL","IEC","PHY","CPROG"],
+                tuesday:   ["PHY","MATHS","KSK","CPROG","IEC","PHY_LAB"],
+                wednesday: ["CPROG","IEC","SOFT","PHY","KSK"],
+                thursday:  ["CAED","IEC","CAED_LAB","MATHS"],
+                friday:    ["MATHS_LAB","CAED","MATHS","PHY"],
+                saturday:  ["MATHS","CPROG","IDP"],
+              },
+              I3: {
+                monday:    ["CAED_LAB","IEC","PHY","CPROG"],
+                tuesday:   ["PHY","MATHS","KSK","CPROG","IEC","CPL"],
+                wednesday: ["CPROG","IEC","SOFT","PHY","KSK"],
+                thursday:  ["CAED","IEC","PHY_LAB","MATHS"],
+                friday:    ["MATHS_LAB","CAED","MATHS","PHY"],
+                saturday:  ["MATHS","CPROG","IDP"],
+              },
+            },
+          }
+        },
+        PHY_ECE: {
+          subjects: [
+            {code:"MATHS",    name:"Applied Mathematics II (Transforms)"},
+            {code:"MATHS_LAB",name:"Mathematics Lab"},
+            {code:"PHY",      name:"Quantum Physics and Electronic Sensors"},
+            {code:"PHY_LAB",  name:"Physics Lab"},
+            {code:"CAED",     name:"Computer Aided Drawing"},
+            {code:"CAED_LAB", name:"CAED Lab"},
+            {code:"IEE",      name:"Introduction to Electrical Engineering"},
+            {code:"FEC",      name:"Fundamentals of Electronics and Communication Engg"},
+            {code:"FEC_LAB",  name:"FEC Lab"},
+            {code:"SOFT",     name:"Soft Skills"},
+            {code:"KSK",      name:"Samskrutika Kannada"},
+            {code:"IDP",      name:"Interdisciplinary Project-Based Learning"},
+          ],
+          sections: ["M","N","O","P"],
+          schedule: {
+            M: {
+              M1: {
+                monday:    ["FEC","KSK","IEE","PHY","PHY_LAB"],
+                tuesday:   ["MATHS","CAED","FEC","IEE"],
+                wednesday: ["CAED_LAB","FEC","MATHS","CAED"],
+                thursday:  ["MATHS_LAB","IEE","MATHS","PHY"],
+                friday:    ["SOFT","PHY","FEC_LAB","MATHS","FEC"],
+                saturday:  ["PHY","IEE","IDP"],
+              },
+              M2: {
+                monday:    ["FEC","KSK","IEE","PHY","FEC_LAB"],
+                tuesday:   ["MATHS","CAED","FEC","IEE"],
+                wednesday: ["PHY_LAB","FEC","MATHS","CAED"],
+                thursday:  ["MATHS_LAB","IEE","MATHS","PHY"],
+                friday:    ["SOFT","PHY","CAED_LAB","MATHS","FEC"],
+                saturday:  ["PHY","IEE","IDP"],
+              },
+              M3: {
+                monday:    ["FEC","KSK","IEE","PHY","CAED_LAB"],
+                tuesday:   ["MATHS","CAED","FEC","IEE"],
+                wednesday: ["PHY_LAB","FEC","MATHS","CAED"],
+                thursday:  ["MATHS_LAB","IEE","MATHS","PHY"],
+                friday:    ["SOFT","PHY","FEC_LAB","MATHS","FEC"],
+                saturday:  ["PHY","IEE","IDP"],
+              },
+            },
+          }
+        }
+      }
+    }
+  }
+};
+
+// ── HOLIDAYS ───────────────────────────────────────────────────────
+const HOLIDAYS = new Set([
+  "2026-02-15","2026-03-19","2026-03-21","2026-03-31",
+  "2026-04-03","2026-04-04","2026-04-14","2026-04-18",
+  "2026-04-19","2026-04-20","2026-05-01","2026-05-16","2026-05-28"
+]);
+
+// ── INIT ───────────────────────────────────────────────────────────
+function init() {
+  const p = new URLSearchParams(window.location.search);
+  const uid = p.get('user_id');
+  const uname = p.get('name');
+  const uemail = p.get('email');
+  if (uid) {
+    currentUser = {id:uid, name:decodeURIComponent(uname||'Student'), email:uemail||''};
+    localStorage.setItem('user_id', uid);
+    localStorage.setItem('user_name', uname||'');
+    localStorage.setItem('user_email', uemail||'');
+  } else {
+    const sid = localStorage.getItem('user_id');
+    if (sid) currentUser = {id:sid, name:decodeURIComponent(localStorage.getItem('user_name')||'Student'), email:localStorage.getItem('user_email')||''};
+  }
+}
+
+// ── STEP 1 LOGIC ───────────────────────────────────────────────────
+function onCollegeChange() { updateCycleVisibility(); }
+function onYearChange()    { updateCycleVisibility(); }
+function onSemChange()     { updateCycleVisibility(); }
+
+function updateCycleVisibility() {
+  const college  = document.getElementById('college').value;
+  const year     = document.getElementById('year').value;
+  const semester = document.getElementById('semester').value;
+  const show = college === 'CMRIT' && year && semester;
+  document.getElementById('cycle-wrap').style.display = show ? 'block' : 'none';
+  document.getElementById('sec-batch-wrap').style.display = 'none';
+  document.getElementById('subjects-preview').style.display = 'none';
+  currentSubjects = [];
+}
+
+function onCycleChange() {
+  const college  = document.getElementById('college').value;
+  const year     = parseInt(document.getElementById('year').value);
+  const semester = parseInt(document.getElementById('semester').value);
+  const cycle    = document.getElementById('cycle').value;
+  if (!cycle) return;
+
+  const cycleData = TIMETABLE_DB[college]?.[year]?.[semester]?.[cycle];
+  if (!cycleData) return;
+
+  // Populate sections
+  const secSel = document.getElementById('section');
+  secSel.innerHTML = '<option value="">Section</option>';
+  cycleData.sections.forEach(s => {
+    secSel.innerHTML += `<option value="${s}">${s}</option>`;
+  });
+
+  document.getElementById('batch').innerHTML = '<option value="">Batch</option>';
+  document.getElementById('sec-batch-wrap').style.display = 'grid';
+  document.getElementById('subjects-preview').style.display = 'none';
+  currentSubjects = [];
+}
+
+function onSectionChange() {
+  const section = document.getElementById('section').value;
+  const cycle   = document.getElementById('cycle').value;
+  const college = document.getElementById('college').value;
+  const year    = parseInt(document.getElementById('year').value);
+  const sem     = parseInt(document.getElementById('semester').value);
+  if (!section) return;
+
+  const cycleData = TIMETABLE_DB[college]?.[year]?.[sem]?.[cycle];
+  const sectionSched = cycleData?.schedule?.[section];
+
+  const batchSel = document.getElementById('batch');
+  batchSel.innerHTML = '<option value="">Batch</option>';
+  if (sectionSched) {
+    Object.keys(sectionSched).forEach(b => {
+      batchSel.innerHTML += `<option value="${b}">${b}</option>`;
+    });
+  }
+  currentSubjects = cycleData?.subjects || [];
+  updateSubjectPreview(cycleData?.subjects || []);
+}
+
+function onBatchChange() {
+  const college  = document.getElementById('college').value;
+  const year     = parseInt(document.getElementById('year').value);
+  const sem      = parseInt(document.getElementById('semester').value);
+  const cycle    = document.getElementById('cycle').value;
+  const cycleData = TIMETABLE_DB[college]?.[year]?.[sem]?.[cycle];
+  currentSubjects = cycleData?.subjects || [];
+  updateSubjectPreview(cycleData?.subjects || []);
+}
+
+function updateSubjectPreview(subjects) {
+  const box = document.getElementById('subjects-preview');
+  if (!subjects.length) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  document.getElementById('subjects-count').textContent = subjects.length + ' subjects';
+  document.getElementById('subjects-chips').innerHTML =
+    subjects.map(s => `<span class="chip">${s.name}</span>`).join('');
+}
+
+async function saveProfile() {
+  const college  = document.getElementById('college').value;
+  const year     = document.getElementById('year').value;
+  const semester = document.getElementById('semester').value;
+  const cycle    = document.getElementById('cycle').value;
+  const section  = document.getElementById('section').value;
+  const batch    = document.getElementById('batch').value;
+  const minAtt   = parseInt(document.getElementById('min-att').value) || 75;
+
+  if (!college || !year || !semester || !cycle || !section || !batch) {
+    alert('Please fill in all fields'); return;
+  }
+
+  try {
+    await fetch(`${API}/onboarding/profile`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({user_id:currentUser.id, college, year, semester, section, batch, min_attendance:minAtt})
+    });
+    // Save subjects + empty schedule (timetable is hardcoded in frontend)
+    if (currentSubjects.length > 0) {
+      const res = await fetch(`${API}/onboarding/save-timetable`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          user_id: currentUser.id,
+          section,
+          subjects: currentSubjects.map(s => s.name),
+          schedule: {}
+        })
+      });
+      const data = await res.json();
+      // Fetch back DB subjects
+      try {
+        const r2 = await fetch(`${API}/dashboard/${currentUser.id}`);
+        const d2 = await r2.json();
+        dbSubjects = d2.subjects || [];
+      } catch(e) {}
+    }
+  } catch(e) { console.error(e); }
+
+  goTo(2);
+}
+
+// ── STEP 2 LOGIC ───────────────────────────────────────────────────
+function buildAttCards() {
+  const container = document.getElementById('att-cards');
+  if (!currentSubjects.length) {
+    container.innerHTML = `<p style="color:var(--muted);font-size:14px;">No subjects loaded. Go back.</p>`;
+    return;
+  }
+
+  container.innerHTML = currentSubjects.map((subj, i) => {
+    const key = 'k' + subj.code;
+    return `<div class="att-card" id="card-${key}">
+      <div class="att-accent"></div>
+      <div class="att-top">
+        <div class="att-name">${subj.name}</div>
+        <div class="att-pct" id="pct-${key}">—</div>
+      </div>
+      <div class="att-inputs">
+        <div class="att-input-wrap">
+          <label>Held</label>
+          <input type="number" id="total-${key}" placeholder="0" min="0" max="999" inputmode="numeric"
+            oninput="updateCard('${key}',${i})"
+            onkeydown="handleEnter(event,'${key}','total',${i})">
+        </div>
+        <div class="att-input-wrap">
+          <label>Attended</label>
+          <input type="number" id="att-${key}" placeholder="0" min="0" max="999" inputmode="numeric"
+            oninput="updateCard('${key}',${i})"
+            onkeydown="handleEnter(event,'${key}','att',${i})">
+        </div>
+      </div>
+      <div class="att-status" id="status-${key}"></div>
+    </div>`;
+  }).join('');
+
+  updateFillProgress();
+}
+
+function handleEnter(e, key, field, idx) {
+  if (e.key !== 'Enter' && e.key !== 'Tab') return;
+  e.preventDefault();
+  if (field === 'total') {
+    document.getElementById(`att-k${currentSubjects[idx].code}`)?.focus();
+  } else if (idx + 1 < currentSubjects.length) {
+    document.getElementById(`total-k${currentSubjects[idx+1].code}`)?.focus();
+  }
+}
+
+function updateCard(key, idx) {
+  const total    = parseInt(document.getElementById(`total-${key}`)?.value) || 0;
+  const attended = parseInt(document.getElementById(`att-${key}`)?.value)   || 0;
+  const minAtt   = parseInt(document.getElementById('min-att')?.value) || 75;
+  const pctEl    = document.getElementById(`pct-${key}`);
+  const statusEl = document.getElementById(`status-${key}`);
+  const card     = document.getElementById(`card-${key}`);
+
+  if (total === 0) {
+    pctEl.textContent = '—';
+    pctEl.className = 'att-pct';
+    statusEl.textContent = '';
+    card.className = 'att-card';
+    updateFillProgress(); return;
+  }
+
+  const safe = Math.min(attended, total);
+  const pct  = Math.round((safe / total) * 100);
+  pctEl.textContent = pct + '%';
+  card.classList.add('has-data');
+
+  const minFrac = minAtt / 100;
+  const denom   = 1 - minFrac;
+
+  if (pct >= minAtt + 10) {
+    pctEl.className   = 'att-pct safe';
+    card.className    = 'att-card has-data safe';
+    const canBunk     = denom > 0 ? Math.floor((safe - minFrac * total) / denom) : 0;
+    statusEl.textContent  = `✓ ${Math.max(0,canBunk)} more bunks safe`;
+    statusEl.className    = 'att-status safe';
+  } else if (pct >= minAtt) {
+    pctEl.className   = 'att-pct warn';
+    card.className    = 'att-card has-data warn';
+    statusEl.textContent  = `⚠ Borderline — don't miss next`;
+    statusEl.className    = 'att-status warn';
+  } else {
+    pctEl.className   = 'att-pct danger';
+    card.className    = 'att-card has-data danger';
+    const needed      = denom > 0 ? Math.ceil((minFrac * total - safe) / denom) : 0;
+    statusEl.textContent  = `✕ Need ${Math.max(1,needed)} consecutive`;
+    statusEl.className    = 'att-status danger';
+  }
+  updateFillProgress();
+}
+
+function updateFillProgress() {
+  const filled = currentSubjects.filter(s => (parseInt(document.getElementById(`total-k${s.code}`)?.value)||0) > 0).length;
+  const total  = currentSubjects.length;
+  const pct    = total > 0 ? Math.round((filled / total) * 100) : 0;
+  document.getElementById('fill-bar').style.width = pct + '%';
+  document.getElementById('fill-label').textContent = `${filled} / ${total}`;
+}
+
+async function saveAttendance() {
+  const btn = document.getElementById('save-att-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  if (!dbSubjects.length) {
+    try {
+      const r  = await fetch(`${API}/dashboard/${currentUser.id}`);
+      const d  = await r.json();
+      dbSubjects = d.subjects || [];
+    } catch(e) {}
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+
+  for (const subj of currentSubjects) {
+    const key      = 'k' + subj.code;
+    const total    = parseInt(document.getElementById(`total-${key}`)?.value) || 0;
+    const attended = Math.min(parseInt(document.getElementById(`att-${key}`)?.value) || 0, total);
+    if (total === 0) continue;
+
+    const match = dbSubjects.find(s =>
+      s.name.toLowerCase() === subj.name.toLowerCase() ||
+      s.name.toLowerCase().includes(subj.name.toLowerCase().split(' ')[0])
+    );
+    if (!match) continue;
+
+    // Save as bulk attendance records
+    // attended classes → status: attended
+    // missed classes → status: bunked
+    for (let i = 0; i < attended; i++) {
+      await fetch(`${API}/attendance`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          subject_id: match.id,
+          date: `2026-02-${String((i % 25) + 1).padStart(2,'0')}`,
+          status: 'attended'
+        })
+      }).catch(()=>{});
+    }
+    for (let i = 0; i < (total - attended); i++) {
+      await fetch(`${API}/attendance`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          subject_id: match.id,
+          date: `2026-03-${String((i % 25) + 1).padStart(2,'0')}`,
+          status: 'bunked'
+        })
+      }).catch(()=>{});
+    }
+  }
+
+  btn.textContent = 'Saved!';
+  setTimeout(() => goTo(3), 600);
+}
+
+function skipAttendance() { goTo(3); }
+
+// ── STEP 3 ─────────────────────────────────────────────────────────
+function buildDone() {
+  const college  = document.getElementById('college').value || '—';
+  const year     = document.getElementById('year').value || '—';
+  const semester = document.getElementById('semester').value || '—';
+  const section  = document.getElementById('section').value || '—';
+  const batch    = document.getElementById('batch').value || '—';
+  const cycle    = document.getElementById('cycle').options[document.getElementById('cycle').selectedIndex]?.text || '—';
+  const minAtt   = document.getElementById('min-att').value || '75';
+
+  const filled = currentSubjects.filter(s =>
+    (parseInt(document.getElementById(`total-k${s.code}`)?.value)||0) > 0
+  ).length;
+
+  document.getElementById('done-stats').innerHTML = `
+    <div class="stat-box">
+      <div class="stat-box-label">Subjects</div>
+      <div class="stat-box-val green">${currentSubjects.length}</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-box-label">Data entered</div>
+      <div class="stat-box-val green">${filled}</div>
+    </div>
+  `;
+
+  document.getElementById('done-summary').innerHTML = `
+    <div class="summary-row"><span class="summary-label">Name</span><span class="summary-val">${currentUser?.name||'—'}</span></div>
+    <div class="summary-row"><span class="summary-label">College</span><span class="summary-val">${college}</span></div>
+    <div class="summary-row"><span class="summary-label">Sem</span><span class="summary-val">Year ${year} · Sem ${semester}</span></div>
+    <div class="summary-row"><span class="summary-label">Section · Batch</span><span class="summary-val">${section} · ${batch}</span></div>
+    <div class="summary-row"><span class="summary-label">Min Attendance</span><span class="summary-val">${minAtt}%</span></div>
+  `;
+}
+
+// ── NAVIGATION ─────────────────────────────────────────────────────
+function goTo(step) {
+  document.getElementById(`s${currentStep}`).classList.remove('active');
+  currentStep = step;
+  document.getElementById(`s${step}`).classList.add('active');
+  document.getElementById('step-info').textContent = `${step} / 3`;
+  document.getElementById('prog-fill').style.width = `${Math.round(step/3*100)}%`;
+  window.scrollTo(0, 0);
+  if (step === 2) buildAttCards();
+  if (step === 3) buildDone();
+}
+
+function goToDashboard() {
+  window.location.href = `index.html?user_id=${currentUser.id}&name=${encodeURIComponent(currentUser.name)}&email=${encodeURIComponent(currentUser.email||'')}`;
+}
+
+setInterval(() => fetch(`${API}/health`).catch(()=>{}), 8 * 60 * 1000);
+init();
+</script>
+</body>
+</html>
