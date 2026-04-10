@@ -7,148 +7,91 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #0a0a0a;
-  --surface: #141414;
-  --surface2: #1c1c1c;
-  --border: rgba(255,255,255,0.07);
-  --border2: rgba(255,255,255,0.12);
-  --text: #f0f0f0;
-  --muted: #555;
-  --muted2: #888;
-  --green: #b8ff57;
-  --green-dim: rgba(184,255,87,0.1);
-  --green-border: rgba(184,255,87,0.25);
-  --red: #ff5757;
-  --yellow: #ffd557;
+  --bg: #0a0a0a; --surface: #141414; --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12); --text: #f0f0f0; --muted: #555; --muted2: #888;
+  --green: #b8ff57; --green-dim: rgba(184,255,87,0.1); --green-border: rgba(184,255,87,0.25);
+  --red: #ff5757; --yellow: #ffd557;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;-webkit-font-smoothing:antialiased;}
-
 .shell{max-width:420px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding:0 20px;}
-
-/* TOP BAR */
 .topbar{padding:20px 0 16px;display:flex;align-items:center;justify-content:space-between;}
 .logo{font-size:13px;font-weight:700;letter-spacing:0.15em;color:var(--green);}
-.step-info{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em;}
-
-/* PROGRESS */
-.prog-track{height:1px;background:var(--border2);margin-bottom:32px;position:relative;overflow:hidden;}
+.step-info{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);}
+.prog-track{height:1px;background:var(--border2);margin-bottom:32px;overflow:hidden;}
 .prog-fill{height:100%;background:var(--green);transition:width 0.5s cubic-bezier(0.4,0,0.2,1);}
-
-/* SCREENS */
 .screen{display:none;flex:1;flex-direction:column;animation:fadeUp 0.35s ease both;}
 .screen.active{display:flex;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-
 .screen-body{flex:1;}
 .tag{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--green);margin-bottom:12px;}
 .title{font-size:clamp(26px,7vw,34px);font-weight:800;line-height:1.05;letter-spacing:-0.02em;margin-bottom:10px;}
 .subtitle{font-size:14px;color:var(--muted2);line-height:1.6;margin-bottom:28px;}
-
-/* FIELDS */
 .field{margin-bottom:14px;}
 .field label{display:block;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:7px;}
-.field select,.field input[type="number"]{
-  width:100%;background:var(--surface);border:1px solid var(--border2);
-  border-radius:10px;padding:13px 16px;
-  font-family:'Syne',sans-serif;font-size:15px;font-weight:500;
-  color:var(--text);outline:none;-webkit-appearance:none;
-  transition:border-color 0.2s;
-}
+.field select,.field input[type="number"]{width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:13px 16px;font-family:'Syne',sans-serif;font-size:15px;font-weight:500;color:var(--text);outline:none;-webkit-appearance:none;transition:border-color 0.2s;}
 .field select:focus,.field input:focus{border-color:var(--green);}
 .field select option{background:#1c1c1c;}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-
-/* SUBJECT CHIPS */
 .subjects-preview{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;display:none;}
 .subjects-preview-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
 .subjects-preview-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);}
 .subjects-preview-count{font-family:'DM Mono',monospace;font-size:11px;color:var(--green);}
 .chips{display:flex;flex-wrap:wrap;gap:6px;}
 .chip{background:var(--green-dim);border:1px solid var(--green-border);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;color:var(--green);}
-
-/* ATTENDANCE CARDS */
 .att-intro{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:20px;}
 .att-intro p{font-size:13px;color:var(--muted2);line-height:1.6;}
 .att-intro strong{color:var(--text);}
-
 .att-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:10px;position:relative;overflow:hidden;transition:border-color 0.2s;}
-.att-card.has-data{border-color:var(--border2);}
 .att-accent{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--border2);transition:background 0.3s;}
 .att-card.safe .att-accent{background:var(--green);}
 .att-card.warn .att-accent{background:var(--yellow);}
 .att-card.danger .att-accent{background:var(--red);}
-
 .att-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-left:10px;}
 .att-name{font-size:14px;font-weight:700;flex:1;padding-right:12px;line-height:1.3;}
 .att-pct{font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:var(--muted);transition:color 0.2s;}
 .att-pct.safe{color:var(--green);}
 .att-pct.warn{color:var(--yellow);}
 .att-pct.danger{color:var(--red);}
-
 .att-inputs{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-left:10px;}
 .att-input-wrap label{display:block;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
-.att-input-wrap input{
-  width:100%;background:rgba(255,255,255,0.04);border:1.5px solid var(--border2);
-  border-radius:8px;padding:10px;
-  font-family:'DM Mono',monospace;font-size:20px;font-weight:500;
-  color:var(--text);text-align:center;outline:none;
-  transition:border-color 0.2s;-webkit-appearance:none;
-}
+.att-input-wrap input{width:100%;background:rgba(255,255,255,0.04);border:1.5px solid var(--border2);border-radius:8px;padding:10px;font-family:'DM Mono',monospace;font-size:20px;font-weight:500;color:var(--text);text-align:center;outline:none;transition:border-color 0.2s;-webkit-appearance:none;}
 .att-input-wrap input:focus{border-color:var(--green);}
 .att-status{margin-top:8px;padding-left:10px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);min-height:16px;}
 .att-status.safe{color:var(--green);}
 .att-status.warn{color:var(--yellow);}
 .att-status.danger{color:var(--red);}
-
-/* PROGRESS BAR (step 2) */
 .fill-progress{display:flex;align-items:center;gap:10px;margin-bottom:20px;}
 .fill-bar-wrap{flex:1;height:3px;background:var(--border2);border-radius:2px;overflow:hidden;}
 .fill-bar{height:100%;background:var(--green);border-radius:2px;transition:width 0.3s ease;}
 .fill-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--green);white-space:nowrap;}
-
-/* BUTTONS */
 .btn-row{padding:16px 0 32px;}
-.btn-primary{
-  width:100%;background:var(--green);color:#0a0a0a;border:none;
-  border-radius:12px;padding:16px;
-  font-family:'Syne',sans-serif;font-size:15px;font-weight:700;
-  letter-spacing:0.03em;cursor:pointer;transition:all 0.2s;
-}
+.btn-primary{width:100%;background:var(--green);color:#0a0a0a;border:none;border-radius:12px;padding:16px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;letter-spacing:0.03em;cursor:pointer;transition:all 0.2s;}
 .btn-primary:hover{opacity:0.88;transform:translateY(-1px);}
 .btn-primary:disabled{opacity:0.35;cursor:not-allowed;transform:none;}
-.btn-secondary{
-  width:100%;background:transparent;color:var(--muted);border:none;
-  padding:12px;font-family:'Syne',sans-serif;font-size:13px;
-  cursor:pointer;transition:color 0.15s;margin-top:6px;
-}
+.btn-secondary{width:100%;background:transparent;color:var(--muted);border:none;padding:12px;font-family:'Syne',sans-serif;font-size:13px;cursor:pointer;transition:color 0.15s;margin-top:6px;}
 .btn-secondary:hover{color:var(--text);}
-
-/* SUMMARY */
 .summary-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:20px;}
 .summary-row{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border);}
 .summary-row:last-child{border-bottom:none;}
-.summary-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em;}
+.summary-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);}
 .summary-val{font-size:13px;font-weight:700;}
-
-/* DONE SCREEN */
 .done-icon{font-size:48px;margin-bottom:16px;}
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}
 .stat-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;}
 .stat-box-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
 .stat-box-val{font-family:'DM Mono',monospace;font-size:24px;font-weight:500;}
 .stat-box-val.green{color:var(--green);}
-.stat-box-val.red{color:var(--red);}
 </style>
 </head>
 <body>
 <div class="shell">
   <div class="topbar">
     <div class="logo">NOBUNK</div>
-    <div class="step-info" id="step-info">1 / 3</div>
+    <div class="step-info" id="step-info">1 / 2</div>
   </div>
   <div class="prog-track">
-    <div class="prog-fill" id="prog-fill" style="width:33%"></div>
+    <div class="prog-fill" id="prog-fill" style="width:50%"></div>
   </div>
 
   <!-- STEP 1: PROFILE -->
@@ -156,8 +99,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
     <div class="screen-body">
       <div class="tag">Setup</div>
       <div class="title">Who are you?</div>
-      <div class="subtitle">We'll auto-load your timetable based on your section and batch. No uploads needed.</div>
-
+      <div class="subtitle">We'll auto-load your timetable. No uploads needed.</div>
       <div class="field">
         <label>College</label>
         <select id="college" onchange="onCollegeChange()">
@@ -208,7 +150,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
         <label>Min Attendance Required (%)</label>
         <input type="number" id="min-att" value="75" min="1" max="100">
       </div>
-
       <div class="subjects-preview" id="subjects-preview">
         <div class="subjects-preview-header">
           <span class="subjects-preview-label">Your subjects</span>
@@ -226,9 +167,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
   <div class="screen" id="s2">
     <div class="screen-body">
       <div class="tag">Current Numbers</div>
-      <div class="title">How many have you attended?</div>
+      <div class="title">Your attendance</div>
       <div class="att-intro">
-        <p>Open your <strong>CMRIT portal → Attendance</strong> and enter the numbers for each subject. Skip any you don't want to track yet.</p>
+        <p>Open <strong>CMRIT portal → Attendance</strong>. For each subject enter the two numbers shown — e.g. <strong>15 / 17</strong> means 17 total, 15 attended.</p>
       </div>
       <div class="fill-progress">
         <div class="fill-bar-wrap"><div class="fill-bar" id="fill-bar" style="width:0%"></div></div>
@@ -238,7 +179,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
     </div>
     <div class="btn-row">
       <button class="btn-primary" id="save-att-btn" onclick="saveAttendance()">Save & Finish →</button>
-      <button class="btn-secondary" onclick="skipAttendance()">Skip — I'll track from today</button>
+      <button class="btn-secondary" onclick="skipAttendance()">Skip — track from today</button>
     </div>
   </div>
 
@@ -248,7 +189,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
       <div class="tag">Ready</div>
       <div class="done-icon">🎯</div>
       <div class="title">You're all set.</div>
-      <div class="subtitle">NoBunk knows your timetable. Open the dashboard to see today's classes and your attendance status.</div>
+      <div class="subtitle">NoBunk knows your timetable. Open the dashboard to see today's classes.</div>
       <div class="stat-grid" id="done-stats"></div>
       <div class="summary-card" id="done-summary"></div>
     </div>
@@ -261,84 +202,70 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
 <script>
 const API = 'https://attendease-backend-wrag.onrender.com';
 let currentUser = null;
-let currentSubjects = []; // [{code, name}]
+let currentSubjects = [];
 let dbSubjects = [];
 let currentStep = 1;
 
-// ── TIMETABLE DATABASE ─────────────────────────────────────────────
 const TIMETABLE_DB = {
   CMRIT: {
     1: {
       2: {
         CHEM: {
           subjects: [
-            {code:"MATHS",    name:"Applied Mathematics II"},
-            {code:"MATHS_LAB",name:"Applied Mathematics Lab"},
-            {code:"CHEM",     name:"Applied Chemistry for Smart Systems"},
-            {code:"CHEM_LAB", name:"Applied Chemistry Lab"},
-            {code:"AI",       name:"Introduction to AI and Applications"},
-            {code:"ELE",      name:"Introduction to Electrical Engineering"},
-            {code:"PYTHON",   name:"Python Programming"},
+            {code:"MATHS",     name:"Applied Mathematics II"},
+            {code:"MATHS_LAB", name:"Applied Mathematics Lab"},
+            {code:"CHEM",      name:"Applied Chemistry for Smart Systems"},
+            {code:"CHEM_LAB",  name:"Applied Chemistry Lab"},
+            {code:"AI",        name:"Introduction to AI and Applications"},
+            {code:"ELE",       name:"Introduction to Electrical Engineering"},
+            {code:"PYTHON",    name:"Python Programming"},
             {code:"PYTHON_LAB",name:"Python Programming Lab"},
-            {code:"ENG",      name:"Communication Skills"},
-            {code:"ICO",      name:"Indian Constitution & Engineering Ethics"},
-            {code:"TYL",      name:"Aptitude"},
-            {code:"IDP",      name:"Interdisciplinary Project-Based Learning"},
+            {code:"ENG",       name:"Communication Skills"},
+            {code:"ICO",       name:"Indian Constitution & Engineering Ethics"},
+            {code:"TYL",       name:"Aptitude"},
+            {code:"IDP",       name:"Interdisciplinary Project-Based Learning"},
           ],
           sections: ["A","B","C","D","E","F","G","H"],
-          // schedule[section][batch] = {monday:[subjects], tuesday:[...], ...}
           schedule: {
             A: {
-              A1: {
-                monday:    ["CHEM_LAB","ELE","CHEM","PYTHON","ENG"],
-                tuesday:   ["MATHS_LAB","PYTHON","MATHS","AI","TYL"],
-                wednesday: ["MATHS","CHEM","PYTHON_LAB","AI","PYTHON"],
-                thursday:  ["AI","ELE","MATHS","CHEM","PYTHON"],
-                friday:    ["PYTHON","ENG","CHEM","AI","ELE"],
-                saturday:  ["ELE","MATHS","IDP","TYL"],
-              },
-              A2: {
-                monday:    ["CHEM_LAB","ELE","CHEM","PYTHON","ENG"],
-                tuesday:   ["MATHS_LAB","PYTHON","MATHS","AI","TYL"],
-                wednesday: ["MATHS","CHEM","PYTHON_LAB","AI","PYTHON"],
-                thursday:  ["AI","ELE","MATHS","CHEM","PYTHON"],
-                friday:    ["PYTHON","ENG","CHEM","AI","ELE"],
-                saturday:  ["ELE","MATHS","IDP","TYL"],
-              },
-              A3: {
-                monday:    ["PYTHON_LAB","ELE","CHEM","PYTHON","ENG"],
-                tuesday:   ["MATHS_LAB","PYTHON","MATHS","AI","TYL"],
-                wednesday: ["MATHS","CHEM","CHEM_LAB","AI","PYTHON"],
-                thursday:  ["AI","ELE","MATHS","CHEM","PYTHON"],
-                friday:    ["PYTHON","ENG","CHEM","AI","ELE"],
-                saturday:  ["ELE","MATHS","IDP","TYL"],
-              },
+              A1: { monday:["CHEM_LAB","ELE","CHEM","PYTHON","ENG"], tuesday:["MATHS_LAB","PYTHON","MATHS","AI","TYL"], wednesday:["MATHS","CHEM","PYTHON_LAB","AI","PYTHON"], thursday:["AI","ELE","MATHS","CHEM","PYTHON"], friday:["PYTHON","ENG","CHEM","AI","ELE"], saturday:["ELE","MATHS","IDP","TYL"] },
+              A2: { monday:["CHEM_LAB","ELE","CHEM","PYTHON","ENG"], tuesday:["MATHS_LAB","PYTHON","MATHS","AI","TYL"], wednesday:["MATHS","CHEM","PYTHON_LAB","AI","PYTHON"], thursday:["AI","ELE","MATHS","CHEM","PYTHON"], friday:["PYTHON","ENG","CHEM","AI","ELE"], saturday:["ELE","MATHS","IDP","TYL"] },
+              A3: { monday:["PYTHON_LAB","ELE","CHEM","PYTHON","ENG"], tuesday:["MATHS_LAB","PYTHON","MATHS","AI","TYL"], wednesday:["MATHS","CHEM","CHEM_LAB","AI","PYTHON"], thursday:["AI","ELE","MATHS","CHEM","PYTHON"], friday:["PYTHON","ENG","CHEM","AI","ELE"], saturday:["ELE","MATHS","IDP","TYL"] },
             },
             B: {
-              B1: {
-                monday:    ["MATHS","CHEM","PYTHON_LAB","PYTHON","ICE"],
-                tuesday:   ["CHEM","AI","MATHS_LAB","MATHS","PYTHON"],
-                wednesday: ["AI","ELE","MATHS","ENG","PYTHON"],
-                thursday:  ["CHEM_LAB","ENG","CHEM","ELE"],
-                friday:    ["ELE","MATHS","CHEM","AI","PYTHON","TYL"],
-                saturday:  ["AI","ELE","IDP"],
-              },
-              B2: {
-                monday:    ["MATHS","CHEM","PYTHON_LAB","PYTHON","ICE"],
-                tuesday:   ["CHEM","AI","MATHS_LAB","MATHS","PYTHON"],
-                wednesday: ["AI","ELE","MATHS","ENG","PYTHON"],
-                thursday:  ["CHEM_LAB","ENG","CHEM","ELE"],
-                friday:    ["ELE","MATHS","CHEM","AI","PYTHON","TYL"],
-                saturday:  ["AI","ELE","IDP"],
-              },
-              B3: {
-                monday:    ["MATHS","CHEM","CHEM_LAB","PYTHON","ICE"],
-                tuesday:   ["CHEM","AI","MATHS_LAB","MATHS","PYTHON"],
-                wednesday: ["AI","ELE","MATHS","ENG","PYTHON"],
-                thursday:  ["PYTHON_LAB","ENG","CHEM","ELE"],
-                friday:    ["ELE","MATHS","CHEM","AI","PYTHON","TYL"],
-                saturday:  ["AI","ELE","IDP"],
-              },
+              B1: { monday:["MATHS","CHEM","PYTHON_LAB","PYTHON"], tuesday:["CHEM","AI","MATHS_LAB","MATHS","PYTHON"], wednesday:["AI","ELE","MATHS","ENG","PYTHON"], thursday:["CHEM_LAB","ENG","CHEM","ELE"], friday:["ELE","MATHS","CHEM","AI","PYTHON","TYL"], saturday:["AI","ELE","IDP"] },
+              B2: { monday:["MATHS","CHEM","PYTHON_LAB","PYTHON"], tuesday:["CHEM","AI","MATHS_LAB","MATHS","PYTHON"], wednesday:["AI","ELE","MATHS","ENG","PYTHON"], thursday:["CHEM_LAB","ENG","CHEM","ELE"], friday:["ELE","MATHS","CHEM","AI","PYTHON","TYL"], saturday:["AI","ELE","IDP"] },
+              B3: { monday:["MATHS","CHEM","CHEM_LAB","PYTHON"], tuesday:["CHEM","AI","MATHS_LAB","MATHS","PYTHON"], wednesday:["AI","ELE","MATHS","ENG","PYTHON"], thursday:["PYTHON_LAB","ENG","CHEM","ELE"], friday:["ELE","MATHS","CHEM","AI","PYTHON","TYL"], saturday:["AI","ELE","IDP"] },
+            },
+            C: {
+              C1: { monday:["AI","CHEM","MATHS","ELE","CHEM_LAB"], tuesday:["ELE","MATHS","ENG","PYTHON","AI"], wednesday:["MATHS","ELE","TYL","CHEM","PYTHON"], thursday:["ELE","CHEM","MATHS_LAB","AI"], friday:["PYTHON_LAB","AI","CHEM","PYTHON","ENG"], saturday:["MATHS","PYTHON","IDP"] },
+              C2: { monday:["AI","CHEM","MATHS","ELE","CHEM_LAB"], tuesday:["ELE","MATHS","ENG","PYTHON","AI"], wednesday:["MATHS","ELE","TYL","CHEM","PYTHON"], thursday:["ELE","CHEM","MATHS_LAB","AI"], friday:["PYTHON_LAB","AI","CHEM","PYTHON","ENG"], saturday:["MATHS","PYTHON","IDP"] },
+              C3: { monday:["AI","CHEM","MATHS","ELE","PYTHON_LAB"], tuesday:["ELE","MATHS","ENG","PYTHON","AI"], wednesday:["MATHS","ELE","TYL","CHEM","PYTHON"], thursday:["ELE","CHEM","MATHS_LAB","AI"], friday:["CHEM_LAB","AI","CHEM","PYTHON","ENG"], saturday:["MATHS","PYTHON","IDP"] },
+            },
+            D: {
+              D1: { monday:["MATHS","ELE","CHEM","PYTHON","MATHS_LAB"], tuesday:["CHEM","AI","PYTHON_LAB","ELE"], wednesday:["TYL","ENG","AI","MATHS","PYTHON"], thursday:["AI","ENG","MATHS","ELE","PYTHON"], friday:["ELE","CHEM","PYTHON_LAB","MATHS"], saturday:["AI","CHEM","IDP","PYTHON"] },
+              D2: { monday:["MATHS","ELE","CHEM","PYTHON","MATHS_LAB"], tuesday:["CHEM","AI","PYTHON_LAB","ELE"], wednesday:["TYL","ENG","AI","MATHS","PYTHON"], thursday:["AI","ENG","MATHS","ELE","PYTHON"], friday:["ELE","CHEM","PYTHON_LAB","MATHS"], saturday:["AI","CHEM","IDP","PYTHON"] },
+              D3: { monday:["MATHS","ELE","CHEM","PYTHON","MATHS_LAB"], tuesday:["CHEM","AI","CHEM_LAB","ELE"], wednesday:["TYL","ENG","AI","MATHS","PYTHON"], thursday:["AI","ENG","MATHS","ELE","PYTHON"], friday:["ELE","CHEM","PYTHON_LAB","MATHS"], saturday:["AI","CHEM","IDP","PYTHON"] },
+            },
+            E: {
+              E1: { monday:["CHEM","AI","MATHS","PYTHON","ELE"], tuesday:["PYTHON_LAB","MATHS","ELE","PYTHON","AI"], wednesday:["PYTHON","ELE","ENG","CHEM"], thursday:["CHEM","MATHS","AI","PYTHON","MATHS_LAB"], friday:["CHEM","ENG","ELE","MATHS","CHEM_LAB"], saturday:["AI","TYL","IDP"] },
+              E2: { monday:["CHEM","AI","MATHS","PYTHON","ELE"], tuesday:["PYTHON_LAB","MATHS","ELE","PYTHON","AI"], wednesday:["PYTHON","ELE","ENG","CHEM"], thursday:["CHEM","MATHS","AI","PYTHON","MATHS_LAB"], friday:["CHEM","ENG","ELE","MATHS","CHEM_LAB"], saturday:["AI","TYL","IDP"] },
+              E3: { monday:["CHEM","AI","MATHS","PYTHON","ELE"], tuesday:["CHEM_LAB","MATHS","ELE","PYTHON","AI"], wednesday:["PYTHON","ELE","ENG","CHEM"], thursday:["CHEM","MATHS","AI","PYTHON","MATHS_LAB"], friday:["CHEM","ENG","ELE","MATHS","PYTHON_LAB"], saturday:["AI","TYL","IDP"] },
+            },
+            F: {
+              F1: { monday:["ELE","PYTHON","AI","CHEM","MATHS"], tuesday:["ENG","ELE","PYTHON","AI","CHEM_LAB"], wednesday:["ENG","AI","ELE","CHEM","MATHS"], thursday:["TYL","ELE","PYTHON","MATHS","CHEM"], friday:["AI","CHEM","MATHS_LAB","MATHS"], saturday:["PYTHON_LAB","IDP","PYTHON"] },
+              F2: { monday:["ELE","PYTHON","AI","CHEM","MATHS"], tuesday:["ENG","ELE","PYTHON","AI","CHEM_LAB"], wednesday:["ENG","AI","ELE","CHEM","MATHS"], thursday:["TYL","ELE","PYTHON","MATHS","CHEM"], friday:["AI","CHEM","MATHS_LAB","MATHS"], saturday:["PYTHON_LAB","IDP","PYTHON"] },
+              F3: { monday:["ELE","PYTHON","AI","CHEM","MATHS"], tuesday:["ENG","ELE","PYTHON","AI","PYTHON_LAB"], wednesday:["ENG","AI","ELE","CHEM","MATHS"], thursday:["TYL","ELE","PYTHON","MATHS","CHEM"], friday:["AI","CHEM","MATHS_LAB","MATHS"], saturday:["CHEM_LAB","IDP","PYTHON"] },
+            },
+            G: {
+              G1: { monday:["MATHS_LAB","CHEM","MATHS","ELE","AI"], tuesday:["AI","ELE","PYTHON","CHEM","MATHS","ENG"], wednesday:["CHEM_LAB","ELE","MATHS","PYTHON"], thursday:["PYTHON","TYL","CHEM","ELE","AI"], friday:["AI","CHEM","ENG","MATHS","PYTHON"], saturday:["PYTHON_LAB","IDP"] },
+              G2: { monday:["MATHS_LAB","CHEM","MATHS","ELE","AI"], tuesday:["AI","ELE","PYTHON","CHEM","MATHS","ENG"], wednesday:["CHEM_LAB","ELE","MATHS","PYTHON"], thursday:["PYTHON","TYL","CHEM","ELE","AI"], friday:["AI","CHEM","ENG","MATHS","PYTHON"], saturday:["PYTHON_LAB","IDP"] },
+              G3: { monday:["MATHS_LAB","CHEM","MATHS","ELE","AI"], tuesday:["AI","ELE","PYTHON","CHEM","MATHS","ENG"], wednesday:["PYTHON_LAB","ELE","MATHS","PYTHON"], thursday:["PYTHON","TYL","CHEM","ELE","AI"], friday:["AI","CHEM","ENG","MATHS","PYTHON"], saturday:["CHEM_LAB","IDP"] },
+            },
+            H: {
+              H1: { monday:["AI","ELE","ENG","MATHS","CHEM","PYTHON"], tuesday:["CHEM","TYL","ENG","MATHS","PYTHON"], wednesday:["ELE","PYTHON","CHEM","MATHS"], thursday:["PYTHON","AI","CHEM_LAB","MATHS"], friday:["ELE","MATHS","CHEM","AI","MATHS_LAB"], saturday:["AI","ELE","IDP","PYTHON_LAB"] },
+              H2: { monday:["AI","ELE","ENG","MATHS","CHEM","PYTHON"], tuesday:["CHEM","TYL","ENG","MATHS","PYTHON"], wednesday:["ELE","PYTHON","CHEM","MATHS"], thursday:["PYTHON","AI","CHEM_LAB","MATHS"], friday:["ELE","MATHS","CHEM","AI","MATHS_LAB"], saturday:["AI","ELE","IDP","PYTHON_LAB"] },
+              H3: { monday:["AI","ELE","ENG","MATHS","CHEM","PYTHON"], tuesday:["CHEM","TYL","ENG","MATHS","PYTHON"], wednesday:["ELE","PYTHON","CHEM","MATHS"], thursday:["PYTHON","AI","PYTHON_LAB","MATHS"], friday:["ELE","MATHS","CHEM","AI","MATHS_LAB"], saturday:["AI","ELE","IDP","CHEM_LAB"] },
             },
           }
         },
@@ -360,30 +287,24 @@ const TIMETABLE_DB = {
           sections: ["I","J","K","L"],
           schedule: {
             I: {
-              I1: {
-                monday:    ["PHY_LAB","IEC","PHY","CPROG"],
-                tuesday:   ["PHY","MATHS","KSK","CPROG","IEC"],
-                wednesday: ["CPROG","IEC","SOFT","PHY","KSK"],
-                thursday:  ["CAED","IEC","CPL","MATHS"],
-                friday:    ["CAED_LAB","CAED","MATHS","PHY"],
-                saturday:  ["MATHS","CPROG","IDP"],
-              },
-              I2: {
-                monday:    ["CPL","IEC","PHY","CPROG"],
-                tuesday:   ["PHY","MATHS","KSK","CPROG","IEC","PHY_LAB"],
-                wednesday: ["CPROG","IEC","SOFT","PHY","KSK"],
-                thursday:  ["CAED","IEC","CAED_LAB","MATHS"],
-                friday:    ["MATHS_LAB","CAED","MATHS","PHY"],
-                saturday:  ["MATHS","CPROG","IDP"],
-              },
-              I3: {
-                monday:    ["CAED_LAB","IEC","PHY","CPROG"],
-                tuesday:   ["PHY","MATHS","KSK","CPROG","IEC","CPL"],
-                wednesday: ["CPROG","IEC","SOFT","PHY","KSK"],
-                thursday:  ["CAED","IEC","PHY_LAB","MATHS"],
-                friday:    ["MATHS_LAB","CAED","MATHS","PHY"],
-                saturday:  ["MATHS","CPROG","IDP"],
-              },
+              I1: { monday:["PHY_LAB","IEC","PHY","CPROG"], tuesday:["PHY","MATHS","KSK","CPROG","IEC"], wednesday:["CPROG","IEC","SOFT","PHY","KSK"], thursday:["CAED","IEC","CPL","MATHS"], friday:["CAED_LAB","CAED","MATHS","PHY"], saturday:["MATHS","CPROG","IDP"] },
+              I2: { monday:["CPL","IEC","PHY","CPROG"], tuesday:["PHY","MATHS","KSK","CPROG","IEC","PHY_LAB"], wednesday:["CPROG","IEC","SOFT","PHY","KSK"], thursday:["CAED","IEC","CAED_LAB","MATHS"], friday:["MATHS_LAB","CAED","MATHS","PHY"], saturday:["MATHS","CPROG","IDP"] },
+              I3: { monday:["CAED_LAB","IEC","PHY","CPROG"], tuesday:["PHY","MATHS","KSK","CPROG","IEC","CPL"], wednesday:["CPROG","IEC","SOFT","PHY","KSK"], thursday:["CAED","IEC","PHY_LAB","MATHS"], friday:["MATHS_LAB","CAED","MATHS","PHY"], saturday:["MATHS","CPROG","IDP"] },
+            },
+            J: {
+              J1: { monday:["PHY_LAB","SOFT","PHY","CPROG","IEC"], tuesday:["CAED","PHY","KSK","MATHS"], wednesday:["MATHS","CPROG","MATHS_LAB","KSK"], thursday:["PHY","MATHS","CPL","IEC"], friday:["IEC","CPROG","PHY","CAED","MATHS"], saturday:["IEC","CPROG","IDP"] },
+              J2: { monday:["CPL","SOFT","PHY","CPROG","IEC"], tuesday:["CAED","PHY","KSK","MATHS","PHY_LAB"], wednesday:["MATHS","CPROG","MATHS_LAB","KSK"], thursday:["PHY","MATHS","CAED_LAB","IEC"], friday:["IEC","CPROG","PHY","CAED","MATHS"], saturday:["IEC","CPROG","IDP"] },
+              J3: { monday:["CAED_LAB","SOFT","PHY","CPROG","IEC"], tuesday:["CAED","PHY","KSK","MATHS","CPL"], wednesday:["MATHS","CPROG","MATHS_LAB","KSK"], thursday:["PHY","MATHS","PHY_LAB","IEC"], friday:["IEC","CPROG","PHY","CAED","MATHS"], saturday:["IEC","CPROG","IDP"] },
+            },
+            K: {
+              K1: { monday:["PHY","MATHS","PHY_LAB","CPROG"], tuesday:["MATHS","PHY","CPL","SOFT","IEC"], wednesday:["CPROG","MATHS","CAED","IEC"], thursday:["CPL","IEC","PHY","CPROG"], friday:["IEC","PHY","CPROG","MATHS","KSK","CAED"], saturday:["MATHS_LAB","IDP"] },
+              K2: { monday:["PHY","MATHS","PHY_LAB","CPROG"], tuesday:["MATHS","PHY","CAED_LAB","SOFT","IEC"], wednesday:["CPROG","MATHS","CAED","IEC"], thursday:["CAED_LAB","IEC","PHY","CPROG"], friday:["IEC","PHY","CPROG","MATHS","KSK","CAED"], saturday:["MATHS_LAB","IDP"] },
+              K3: { monday:["PHY","MATHS","PHY_LAB","CPROG"], tuesday:["MATHS","PHY","CPL","SOFT","IEC"], wednesday:["CPROG","MATHS","CAED","IEC"], thursday:["PHY_LAB","IEC","PHY","CPROG"], friday:["IEC","PHY","CPROG","MATHS","KSK","CAED"], saturday:["MATHS_LAB","IDP"] },
+            },
+            L: {
+              L1: { monday:["PHY","IEC","PHY_LAB","MATHS","CPROG"], tuesday:["CPROG","SOFT","CPL","IEC"], wednesday:["MATHS_LAB","CPROG","PHY"], thursday:["CPL","CAED","MATHS","PHY"], friday:["CAED","CPROG","MATHS","PHY","KSK","IEC"], saturday:["IEC","MATHS","IDP"] },
+              L2: { monday:["PHY","IEC","PHY_LAB","MATHS","CPROG"], tuesday:["CPROG","SOFT","CAED_LAB","IEC"], wednesday:["MATHS_LAB","CPROG","PHY"], thursday:["CAED_LAB","CAED","MATHS","PHY"], friday:["CAED","CPROG","MATHS","PHY","KSK","IEC"], saturday:["IEC","MATHS","IDP"] },
+              L3: { monday:["PHY","IEC","PHY_LAB","MATHS","CPROG"], tuesday:["CPROG","SOFT","CPL","IEC"], wednesday:["MATHS_LAB","CPROG","PHY"], thursday:["CPL","CAED","MATHS","PHY"], friday:["CAED","CPROG","MATHS","PHY","KSK","IEC"], saturday:["IEC","MATHS","IDP"] },
             },
           }
         },
@@ -405,30 +326,24 @@ const TIMETABLE_DB = {
           sections: ["M","N","O","P"],
           schedule: {
             M: {
-              M1: {
-                monday:    ["FEC","KSK","IEE","PHY","PHY_LAB"],
-                tuesday:   ["MATHS","CAED","FEC","IEE"],
-                wednesday: ["CAED_LAB","FEC","MATHS","CAED"],
-                thursday:  ["MATHS_LAB","IEE","MATHS","PHY"],
-                friday:    ["SOFT","PHY","FEC_LAB","MATHS","FEC"],
-                saturday:  ["PHY","IEE","IDP"],
-              },
-              M2: {
-                monday:    ["FEC","KSK","IEE","PHY","FEC_LAB"],
-                tuesday:   ["MATHS","CAED","FEC","IEE"],
-                wednesday: ["PHY_LAB","FEC","MATHS","CAED"],
-                thursday:  ["MATHS_LAB","IEE","MATHS","PHY"],
-                friday:    ["SOFT","PHY","CAED_LAB","MATHS","FEC"],
-                saturday:  ["PHY","IEE","IDP"],
-              },
-              M3: {
-                monday:    ["FEC","KSK","IEE","PHY","CAED_LAB"],
-                tuesday:   ["MATHS","CAED","FEC","IEE"],
-                wednesday: ["PHY_LAB","FEC","MATHS","CAED"],
-                thursday:  ["MATHS_LAB","IEE","MATHS","PHY"],
-                friday:    ["SOFT","PHY","FEC_LAB","MATHS","FEC"],
-                saturday:  ["PHY","IEE","IDP"],
-              },
+              M1: { monday:["FEC","KSK","IEE","PHY","PHY_LAB"], tuesday:["MATHS","CAED","FEC","IEE"], wednesday:["CAED_LAB","FEC","MATHS","CAED"], thursday:["MATHS_LAB","IEE","MATHS","PHY"], friday:["SOFT","PHY","FEC_LAB","MATHS","FEC"], saturday:["PHY","IEE","IDP"] },
+              M2: { monday:["FEC","KSK","IEE","PHY","FEC_LAB"], tuesday:["MATHS","CAED","FEC","IEE"], wednesday:["PHY_LAB","FEC","MATHS","CAED"], thursday:["MATHS_LAB","IEE","MATHS","PHY"], friday:["SOFT","PHY","CAED_LAB","MATHS","FEC"], saturday:["PHY","IEE","IDP"] },
+              M3: { monday:["FEC","KSK","IEE","PHY","CAED_LAB"], tuesday:["MATHS","CAED","FEC","IEE"], wednesday:["PHY_LAB","FEC","MATHS","CAED"], thursday:["MATHS_LAB","IEE","MATHS","PHY"], friday:["SOFT","PHY","FEC_LAB","MATHS","FEC"], saturday:["PHY","IEE","IDP"] },
+            },
+            N: {
+              N1: { monday:["MATHS","KSK","IEE","FEC"], tuesday:["FEC","SOFT","CAED","IEE","MATHS_LAB"], wednesday:["CAED_LAB","MATHS","PHY","FEC"], thursday:["IEE","CAED","FEC","MATHS","PHY"], friday:["PHY","MATHS","FEC_LAB","PHY_LAB"], saturday:["PHY","IEE","IDP"] },
+              N2: { monday:["MATHS","KSK","IEE","FEC"], tuesday:["FEC","SOFT","CAED","IEE","MATHS_LAB"], wednesday:["PHY_LAB","MATHS","PHY","FEC"], thursday:["IEE","CAED","FEC","MATHS","PHY"], friday:["PHY","MATHS","FEC_LAB","CAED_LAB"], saturday:["PHY","IEE","IDP"] },
+              N3: { monday:["MATHS","KSK","IEE","FEC"], tuesday:["FEC","SOFT","CAED","IEE","MATHS_LAB"], wednesday:["PHY_LAB","MATHS","PHY","FEC"], thursday:["IEE","CAED","FEC","MATHS","PHY"], friday:["PHY","MATHS","CAED_LAB","FEC_LAB"], saturday:["PHY","IEE","IDP"] },
+            },
+            O: {
+              O1: { monday:["PHY","FEC","MATHS_LAB","MATHS","IEE"], tuesday:["PHY_LAB","PHY","IEE","FEC","KSK"], wednesday:["MATHS","PHY","CAED_LAB","FEC"], thursday:["PHY","MATHS","SOFT","KSK","IEE"], friday:["FEC_LAB","IEE","MATHS","CAED"], saturday:["CAED","FEC","IDP"] },
+              O2: { monday:["PHY","FEC","MATHS_LAB","MATHS","IEE"], tuesday:["FEC_LAB","PHY","IEE","FEC","KSK"], wednesday:["MATHS","PHY","PHY_LAB","FEC"], thursday:["PHY","MATHS","SOFT","KSK","IEE"], friday:["CAED_LAB","IEE","MATHS","CAED"], saturday:["CAED","FEC","IDP"] },
+              O3: { monday:["PHY","FEC","MATHS_LAB","MATHS","IEE"], tuesday:["CAED_LAB","PHY","IEE","FEC","KSK"], wednesday:["MATHS","PHY","PHY_LAB","FEC"], thursday:["PHY","MATHS","SOFT","KSK","IEE"], friday:["FEC_LAB","IEE","MATHS","CAED"], saturday:["CAED","FEC","IDP"] },
+            },
+            P: {
+              P1: { monday:["IEE","CAED","MATHS","PHY","FEC"], tuesday:["PHY_LAB","MATHS","FEC","IEE","KSK"], wednesday:["PHY","FEC","CAED_LAB","MATHS"], thursday:["SOFT","IEE","IEE","KSK","CAED"], friday:["FEC_LAB","PHY","FEC","PHY_LAB"], saturday:["PHY","MATHS","IDP","MATHS_LAB"] },
+              P2: { monday:["IEE","CAED","MATHS","PHY","FEC"], tuesday:["FEC_LAB","MATHS","FEC","IEE","KSK"], wednesday:["PHY","FEC","PHY_LAB","MATHS"], thursday:["SOFT","IEE","IEE","KSK","CAED"], friday:["CAED_LAB","PHY","FEC","PHY_LAB"], saturday:["PHY","MATHS","IDP","MATHS_LAB"] },
+              P3: { monday:["IEE","CAED","MATHS","PHY","FEC"], tuesday:["CAED_LAB","MATHS","FEC","IEE","KSK"], wednesday:["PHY","FEC","PHY_LAB","MATHS"], thursday:["SOFT","IEE","IEE","KSK","CAED"], friday:["FEC_LAB","PHY","FEC","PHY_LAB"], saturday:["PHY","MATHS","IDP","MATHS_LAB"] },
             },
           }
         }
@@ -437,14 +352,6 @@ const TIMETABLE_DB = {
   }
 };
 
-// ── HOLIDAYS ───────────────────────────────────────────────────────
-const HOLIDAYS = new Set([
-  "2026-02-15","2026-03-19","2026-03-21","2026-03-31",
-  "2026-04-03","2026-04-04","2026-04-14","2026-04-18",
-  "2026-04-19","2026-04-20","2026-05-01","2026-05-16","2026-05-28"
-]);
-
-// ── INIT ───────────────────────────────────────────────────────────
 function init() {
   const p = new URLSearchParams(window.location.search);
   const uid = p.get('user_id');
@@ -461,7 +368,6 @@ function init() {
   }
 }
 
-// ── STEP 1 LOGIC ───────────────────────────────────────────────────
 function onCollegeChange() { updateCycleVisibility(); }
 function onYearChange()    { updateCycleVisibility(); }
 function onSemChange()     { updateCycleVisibility(); }
@@ -470,9 +376,9 @@ function updateCycleVisibility() {
   const college  = document.getElementById('college').value;
   const year     = document.getElementById('year').value;
   const semester = document.getElementById('semester').value;
-  const show = college === 'CMRIT' && year && semester;
-  document.getElementById('cycle-wrap').style.display = show ? 'block' : 'none';
-  document.getElementById('sec-batch-wrap').style.display = 'none';
+  const show     = college === 'CMRIT' && year && semester;
+  document.getElementById('cycle-wrap').style.display       = show ? 'block' : 'none';
+  document.getElementById('sec-batch-wrap').style.display   = 'none';
   document.getElementById('subjects-preview').style.display = 'none';
   currentSubjects = [];
 }
@@ -481,55 +387,42 @@ function onCycleChange() {
   const college  = document.getElementById('college').value;
   const year     = parseInt(document.getElementById('year').value);
   const semester = parseInt(document.getElementById('semester').value);
-  const cycle    = document.getElementById('cycle').value;
+  const cycle    = document.getElementById('cycle')?.value || '';
   if (!cycle) return;
-
   const cycleData = TIMETABLE_DB[college]?.[year]?.[semester]?.[cycle];
   if (!cycleData) return;
-
-  // Populate sections
   const secSel = document.getElementById('section');
   secSel.innerHTML = '<option value="">Section</option>';
-  cycleData.sections.forEach(s => {
-    secSel.innerHTML += `<option value="${s}">${s}</option>`;
-  });
-
+  cycleData.sections.forEach(s => { secSel.innerHTML += `<option value="${s}">${s}</option>`; });
   document.getElementById('batch').innerHTML = '<option value="">Batch</option>';
-  document.getElementById('sec-batch-wrap').style.display = 'grid';
+  document.getElementById('sec-batch-wrap').style.display   = 'grid';
   document.getElementById('subjects-preview').style.display = 'none';
   currentSubjects = [];
 }
 
 function onSectionChange() {
-  const section = document.getElementById('section').value;
-  const cycle   = document.getElementById('cycle').value;
-  const college = document.getElementById('college').value;
-  const year    = parseInt(document.getElementById('year').value);
-  const sem     = parseInt(document.getElementById('semester').value);
-  if (!section) return;
-
-  const cycleData = TIMETABLE_DB[college]?.[year]?.[sem]?.[cycle];
-  const sectionSched = cycleData?.schedule?.[section];
-
-  const batchSel = document.getElementById('batch');
-  batchSel.innerHTML = '<option value="">Batch</option>';
-  if (sectionSched) {
-    Object.keys(sectionSched).forEach(b => {
-      batchSel.innerHTML += `<option value="${b}">${b}</option>`;
-    });
-  }
-  currentSubjects = cycleData?.subjects || [];
-  updateSubjectPreview(cycleData?.subjects || []);
-}
-
-function onBatchChange() {
   const college  = document.getElementById('college').value;
   const year     = parseInt(document.getElementById('year').value);
   const sem      = parseInt(document.getElementById('semester').value);
-  const cycle    = document.getElementById('cycle').value;
-  const cycleData = TIMETABLE_DB[college]?.[year]?.[sem]?.[cycle];
+  const cycle    = document.getElementById('cycle')?.value || '';
+  const section  = document.getElementById('section').value;
+  if (!section) return;
+  const cycleData    = TIMETABLE_DB[college]?.[year]?.[sem]?.[cycle];
+  const sectionSched = cycleData?.schedule?.[section];
+  const batchSel     = document.getElementById('batch');
+  batchSel.innerHTML = '<option value="">Batch</option>';
+  if (sectionSched) Object.keys(sectionSched).forEach(b => { batchSel.innerHTML += `<option value="${b}">${b}</option>`; });
   currentSubjects = cycleData?.subjects || [];
-  updateSubjectPreview(cycleData?.subjects || []);
+  updateSubjectPreview(currentSubjects);
+}
+
+function onBatchChange() {
+  const college = document.getElementById('college').value;
+  const year    = parseInt(document.getElementById('year').value);
+  const sem     = parseInt(document.getElementById('semester').value);
+  const cycle   = document.getElementById('cycle')?.value || '';
+  currentSubjects = TIMETABLE_DB[college]?.[year]?.[sem]?.[cycle]?.subjects || [];
+  updateSubjectPreview(currentSubjects);
 }
 
 function updateSubjectPreview(subjects) {
@@ -537,60 +430,46 @@ function updateSubjectPreview(subjects) {
   if (!subjects.length) { box.style.display = 'none'; return; }
   box.style.display = 'block';
   document.getElementById('subjects-count').textContent = subjects.length + ' subjects';
-  document.getElementById('subjects-chips').innerHTML =
-    subjects.map(s => `<span class="chip">${s.name}</span>`).join('');
+  document.getElementById('subjects-chips').innerHTML = subjects.map(s => `<span class="chip">${s.name}</span>`).join('');
 }
 
 async function saveProfile() {
   const college  = document.getElementById('college').value;
   const year     = document.getElementById('year').value;
   const semester = document.getElementById('semester').value;
-  const cycle    = document.getElementById('cycle').value;
+  const cycle    = document.getElementById('cycle')?.value || '';
   const section  = document.getElementById('section').value;
   const batch    = document.getElementById('batch').value;
-  const minAtt   = parseInt(document.getElementById('min-att').value) || 75;
+  const minAtt   = parseInt(document.getElementById('min-att')?.value) || 75;
 
   if (!college || !year || !semester || !cycle || !section || !batch) {
     alert('Please fill in all fields'); return;
   }
+
+  goTo(2); // go immediately
 
   try {
     await fetch(`${API}/onboarding/profile`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({user_id:currentUser.id, college, year, semester, section, batch, min_attendance:minAtt})
     });
-    // Save subjects + empty schedule (timetable is hardcoded in frontend)
     if (currentSubjects.length > 0) {
-      const res = await fetch(`${API}/onboarding/save-timetable`, {
+      await fetch(`${API}/onboarding/save-timetable`, {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          user_id: currentUser.id,
-          section,
-          subjects: currentSubjects.map(s => s.name),
-          schedule: {}
-        })
+        body: JSON.stringify({user_id:currentUser.id, section, subjects:currentSubjects.map(s=>s.name), schedule:{}})
       });
-      const data = await res.json();
-      // Fetch back DB subjects
-      try {
-        const r2 = await fetch(`${API}/dashboard/${currentUser.id}`);
-        const d2 = await r2.json();
-        dbSubjects = d2.subjects || [];
-      } catch(e) {}
+      const r2 = await fetch(`${API}/dashboard/${currentUser.id}`);
+      const d2 = await r2.json();
+      dbSubjects = d2.subjects || [];
     }
   } catch(e) { console.error(e); }
-
-  goTo(2);
 }
 
-// ── STEP 2 LOGIC ───────────────────────────────────────────────────
 function buildAttCards() {
   const container = document.getElementById('att-cards');
   if (!currentSubjects.length) {
-    container.innerHTML = `<p style="color:var(--muted);font-size:14px;">No subjects loaded. Go back.</p>`;
-    return;
+    container.innerHTML = `<p style="color:var(--muted);font-size:14px;">No subjects loaded. Go back.</p>`; return;
   }
-
   container.innerHTML = currentSubjects.map((subj, i) => {
     const key = 'k' + subj.code;
     return `<div class="att-card" id="card-${key}">
@@ -601,13 +480,13 @@ function buildAttCards() {
       </div>
       <div class="att-inputs">
         <div class="att-input-wrap">
-          <label>Held</label>
+          <label>Total Classes</label>
           <input type="number" id="total-${key}" placeholder="0" min="0" max="999" inputmode="numeric"
             oninput="updateCard('${key}',${i})"
             onkeydown="handleEnter(event,'${key}','total',${i})">
         </div>
         <div class="att-input-wrap">
-          <label>Attended</label>
+          <label>You Attended</label>
           <input type="number" id="att-${key}" placeholder="0" min="0" max="999" inputmode="numeric"
             oninput="updateCard('${key}',${i})"
             onkeydown="handleEnter(event,'${key}','att',${i})">
@@ -616,7 +495,6 @@ function buildAttCards() {
       <div class="att-status" id="status-${key}"></div>
     </div>`;
   }).join('');
-
   updateFillProgress();
 }
 
@@ -637,40 +515,43 @@ function updateCard(key, idx) {
   const pctEl    = document.getElementById(`pct-${key}`);
   const statusEl = document.getElementById(`status-${key}`);
   const card     = document.getElementById(`card-${key}`);
+  const attInp   = document.getElementById(`att-${key}`);
 
   if (total === 0) {
-    pctEl.textContent = '—';
-    pctEl.className = 'att-pct';
-    statusEl.textContent = '';
-    card.className = 'att-card';
+    pctEl.textContent = '—'; pctEl.className = 'att-pct';
+    statusEl.textContent = ''; card.className = 'att-card';
+    attInp.style.borderColor = '';
     updateFillProgress(); return;
   }
 
-  const safe = Math.min(attended, total);
-  const pct  = Math.round((safe / total) * 100);
-  pctEl.textContent = pct + '%';
-  card.classList.add('has-data');
+  if (attended > total) {
+    attInp.style.borderColor = 'var(--red)';
+    statusEl.textContent = '⚠ Cannot exceed total classes';
+    statusEl.className = 'att-status danger';
+    pctEl.textContent = '!'; pctEl.className = 'att-pct danger';
+    updateFillProgress(); return;
+  }
+  attInp.style.borderColor = '';
 
+  const pct     = Math.round((attended / total) * 100);
   const minFrac = minAtt / 100;
   const denom   = 1 - minFrac;
+  pctEl.textContent = pct + '%';
 
   if (pct >= minAtt + 10) {
-    pctEl.className   = 'att-pct safe';
-    card.className    = 'att-card has-data safe';
-    const canBunk     = denom > 0 ? Math.floor((safe - minFrac * total) / denom) : 0;
-    statusEl.textContent  = `✓ ${Math.max(0,canBunk)} more bunks safe`;
-    statusEl.className    = 'att-status safe';
+    pctEl.className = 'att-pct safe'; card.className = 'att-card safe';
+    const canBunk = denom > 0 ? Math.floor((attended - minFrac * total) / denom) : 0;
+    statusEl.textContent = `✓ ${Math.max(0,canBunk)} more bunks safe`;
+    statusEl.className = 'att-status safe';
   } else if (pct >= minAtt) {
-    pctEl.className   = 'att-pct warn';
-    card.className    = 'att-card has-data warn';
-    statusEl.textContent  = `⚠ Borderline — don't miss next`;
-    statusEl.className    = 'att-status warn';
+    pctEl.className = 'att-pct warn'; card.className = 'att-card warn';
+    statusEl.textContent = `⚠ Borderline — don't miss next`;
+    statusEl.className = 'att-status warn';
   } else {
-    pctEl.className   = 'att-pct danger';
-    card.className    = 'att-card has-data danger';
-    const needed      = denom > 0 ? Math.ceil((minFrac * total - safe) / denom) : 0;
-    statusEl.textContent  = `✕ Need ${Math.max(1,needed)} consecutive`;
-    statusEl.className    = 'att-status danger';
+    pctEl.className = 'att-pct danger'; card.className = 'att-card danger';
+    const needed = denom > 0 ? Math.ceil((minFrac * total - attended) / denom) : 0;
+    statusEl.textContent = `✕ Need ${Math.max(1,needed)} consecutive`;
+    statusEl.className = 'att-status danger';
   }
   updateFillProgress();
 }
@@ -678,30 +559,36 @@ function updateCard(key, idx) {
 function updateFillProgress() {
   const filled = currentSubjects.filter(s => (parseInt(document.getElementById(`total-k${s.code}`)?.value)||0) > 0).length;
   const total  = currentSubjects.length;
-  const pct    = total > 0 ? Math.round((filled / total) * 100) : 0;
-  document.getElementById('fill-bar').style.width = pct + '%';
+  document.getElementById('fill-bar').style.width   = total > 0 ? Math.round(filled/total*100)+'%' : '0%';
   document.getElementById('fill-label').textContent = `${filled} / ${total}`;
 }
 
 async function saveAttendance() {
   const btn = document.getElementById('save-att-btn');
-  btn.disabled = true;
-  btn.textContent = 'Saving...';
-
-  if (!dbSubjects.length) {
-    try {
-      const r  = await fetch(`${API}/dashboard/${currentUser.id}`);
-      const d  = await r.json();
-      dbSubjects = d.subjects || [];
-    } catch(e) {}
-  }
-
-  const today = new Date().toISOString().split('T')[0];
+  btn.disabled = true; btn.textContent = 'Saving...';
 
   for (const subj of currentSubjects) {
     const key      = 'k' + subj.code;
     const total    = parseInt(document.getElementById(`total-${key}`)?.value) || 0;
-    const attended = Math.min(parseInt(document.getElementById(`att-${key}`)?.value) || 0, total);
+    const attended = parseInt(document.getElementById(`att-${key}`)?.value)   || 0;
+    if (attended > total && total > 0) {
+      btn.disabled = false; btn.textContent = 'Save & Finish →';
+      alert(`Fix error in "${subj.name}" — attended cannot exceed total`); return;
+    }
+  }
+
+  if (!dbSubjects.length) {
+    try {
+      const r = await fetch(`${API}/dashboard/${currentUser.id}`);
+      const d = await r.json();
+      dbSubjects = d.subjects || [];
+    } catch(e) {}
+  }
+
+  for (const subj of currentSubjects) {
+    const key      = 'k' + subj.code;
+    const total    = parseInt(document.getElementById(`total-${key}`)?.value) || 0;
+    const attended = parseInt(document.getElementById(`att-${key}`)?.value)   || 0;
     if (total === 0) continue;
 
     const match = dbSubjects.find(s =>
@@ -710,84 +597,65 @@ async function saveAttendance() {
     );
     if (!match) continue;
 
-    // Save as bulk attendance records
-    // attended classes → status: attended
-    // missed classes → status: bunked
     for (let i = 0; i < attended; i++) {
       await fetch(`${API}/attendance`, {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          subject_id: match.id,
-          date: `2026-02-${String((i % 25) + 1).padStart(2,'0')}`,
-          status: 'attended'
-        })
+        body: JSON.stringify({subject_id:match.id, date:`2026-02-${String((i%25)+1).padStart(2,'0')}`, status:'attended'})
       }).catch(()=>{});
     }
     for (let i = 0; i < (total - attended); i++) {
       await fetch(`${API}/attendance`, {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          subject_id: match.id,
-          date: `2026-03-${String((i % 25) + 1).padStart(2,'0')}`,
-          status: 'bunked'
-        })
+        body: JSON.stringify({subject_id:match.id, date:`2026-03-${String((i%25)+1).padStart(2,'0')}`, status:'bunked'})
       }).catch(()=>{});
     }
   }
 
   btn.textContent = 'Saved!';
-  setTimeout(() => goTo(3), 600);
+  setTimeout(() => goTo(3), 500);
 }
 
 function skipAttendance() { goTo(3); }
 
-// ── STEP 3 ─────────────────────────────────────────────────────────
 function buildDone() {
-  const college  = document.getElementById('college').value || '—';
-  const year     = document.getElementById('year').value || '—';
+  const college  = document.getElementById('college').value  || '—';
+  const year     = document.getElementById('year').value     || '—';
   const semester = document.getElementById('semester').value || '—';
-  const section  = document.getElementById('section').value || '—';
-  const batch    = document.getElementById('batch').value || '—';
-  const cycle    = document.getElementById('cycle').options[document.getElementById('cycle').selectedIndex]?.text || '—';
-  const minAtt   = document.getElementById('min-att').value || '75';
-
-  const filled = currentSubjects.filter(s =>
-    (parseInt(document.getElementById(`total-k${s.code}`)?.value)||0) > 0
-  ).length;
+  const section  = document.getElementById('section').value  || '—';
+  const batch    = document.getElementById('batch').value    || '—';
+  const minAtt   = document.getElementById('min-att')?.value || '75';
+  const filled   = currentSubjects.filter(s => (parseInt(document.getElementById(`total-k${s.code}`)?.value)||0) > 0).length;
 
   document.getElementById('done-stats').innerHTML = `
-    <div class="stat-box">
-      <div class="stat-box-label">Subjects</div>
-      <div class="stat-box-val green">${currentSubjects.length}</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-box-label">Data entered</div>
-      <div class="stat-box-val green">${filled}</div>
-    </div>
-  `;
+    <div class="stat-box"><div class="stat-box-label">Subjects</div><div class="stat-box-val green">${currentSubjects.length}</div></div>
+    <div class="stat-box"><div class="stat-box-label">Entered</div><div class="stat-box-val green">${filled}</div></div>`;
 
   document.getElementById('done-summary').innerHTML = `
     <div class="summary-row"><span class="summary-label">Name</span><span class="summary-val">${currentUser?.name||'—'}</span></div>
     <div class="summary-row"><span class="summary-label">College</span><span class="summary-val">${college}</span></div>
-    <div class="summary-row"><span class="summary-label">Sem</span><span class="summary-val">Year ${year} · Sem ${semester}</span></div>
+    <div class="summary-row"><span class="summary-label">Year · Sem</span><span class="summary-val">${year} · Sem ${semester}</span></div>
     <div class="summary-row"><span class="summary-label">Section · Batch</span><span class="summary-val">${section} · ${batch}</span></div>
-    <div class="summary-row"><span class="summary-label">Min Attendance</span><span class="summary-val">${minAtt}%</span></div>
-  `;
+    <div class="summary-row"><span class="summary-label">Min Attendance</span><span class="summary-val">${minAtt}%</span></div>`;
 }
 
-// ── NAVIGATION ─────────────────────────────────────────────────────
 function goTo(step) {
   document.getElementById(`s${currentStep}`).classList.remove('active');
   currentStep = step;
   document.getElementById(`s${step}`).classList.add('active');
-  document.getElementById('step-info').textContent = `${step} / 3`;
-  document.getElementById('prog-fill').style.width = `${Math.round(step/3*100)}%`;
+  document.getElementById('step-info').textContent = `${step} / 2`;
+  document.getElementById('prog-fill').style.width = step === 1 ? '50%' : step === 2 ? '75%' : '100%';
   window.scrollTo(0, 0);
   if (step === 2) buildAttCards();
   if (step === 3) buildDone();
 }
 
-function goToDashboard() {
+async function goToDashboard() {
+  try {
+    await fetch(`${API}/onboarding/save-timetable`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({user_id:currentUser.id, section:document.getElementById('section').value, subjects:currentSubjects.map(s=>s.name), schedule:{}})
+    });
+  } catch(e) {}
   window.location.href = `index.html?user_id=${currentUser.id}&name=${encodeURIComponent(currentUser.name)}&email=${encodeURIComponent(currentUser.email||'')}`;
 }
 
