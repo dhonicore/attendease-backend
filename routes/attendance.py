@@ -38,18 +38,28 @@ def mark_attendance(record: AttendanceCreate):
         return {"message": "attendance marked", "data": result.data[0], "created": 1}
 
     # Batch insert mode for onboarding totals: spread across unique dates.
+    # Use different ranges for attended vs bunked to avoid date conflicts
     try:
         start = date.fromisoformat(record.date)
     except ValueError:
         start = date.today()
 
     rows = []
-    for i in range(count):
-        rows.append({
-            "subject_id": record.subject_id,
-            "date": (start + timedelta(days=i)).isoformat(),
-            "status": record.status
-        })
+    if record.status == "attended":
+        for i in range(count):
+            days_ago = count - i
+            rows.append({
+                "subject_id": record.subject_id,
+                "date": (start - timedelta(days=days_ago * 7)).isoformat(),
+                "status": record.status
+            })
+    else:
+        for i in range(count):
+            rows.append({
+                "subject_id": record.subject_id,
+                "date": (start + timedelta(days=i * 7)).isoformat(),
+                "status": record.status
+            })
 
     result = db.table("attendance_records").insert(rows).execute()
     return {

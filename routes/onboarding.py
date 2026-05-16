@@ -168,9 +168,8 @@ async def save_timetable(request: dict):
                     }).execute()
 
     if section:
-        db.table("users").update({"section": section, "onboarded": True}).eq("id", user_id).execute()
-    else:
-        db.table("users").update({"onboarded": True}).eq("id", user_id).execute()
+        db.table("users").update({"section": section}).eq("id", user_id).execute()
+    # Note: onboarded is set by frontend after completing all onboarding steps
 
     return {"message": "timetable saved", "subjects_added": len(subject_id_map)}
 

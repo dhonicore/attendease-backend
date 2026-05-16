@@ -60,12 +60,7 @@ def calculate_subject_advice(
     total_by_end = total + remaining_classes
     min_att = min_attendance / 100
 
-    # FIX: correct safe bunks formula
-    safe_bunks_left = max(0, math.floor((attended - min_att * total_by_end) / 1))
-    # More precise: how many can I miss from remaining and still hit min_att at semester end
-    # attended must be >= min_att * (total + remaining - bunks_taken)
-    # => bunks_taken <= attended/min_att - total - remaining + bunks_taken ... solve properly:
-    # max_total_misses = total_by_end - ceil(attended / min_att) but cap at remaining
+    # Calculate how many more classes can be missed while still meeting minimum
     if min_att > 0:
         max_absences_allowed = math.floor(attended / min_att * (1 - min_att))
         absences_so_far = total - attended

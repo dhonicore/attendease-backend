@@ -1,5 +1,6 @@
 import os
 import httpx
+from urllib.parse import quote
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 from database import get_db
@@ -54,7 +55,7 @@ async def google_callback(code: str):
     else:
         user = existing.data[0]
 
-    name = user.get('name', '').replace(' ', '%20')
+    name = quote(user.get('name', ''))
     is_onboarded = user.get('onboarded', False)
 
     if is_onboarded:
